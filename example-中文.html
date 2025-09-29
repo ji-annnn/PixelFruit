@@ -665,6 +665,9 @@
             const exposureFactor = exposure !== 0 ? Math.pow(2, exposure) : 1;
             const saturationFactor = saturation !== 100 ? saturation / 100 : 1;
             
+            // 获取高光值并检查是否需要应用高光调整
+            const highlights = settings.highlights !== undefined ? settings.highlights : parseInt(highlightsSlider.value);
+            
             // 标记是否需要进行某种调整，避免不必要的计算
             const needBrightness = brightness !== 1.0;
             const needContrast = contrast !== 0;
@@ -673,10 +676,11 @@
             const needTint = tint !== 0;
             const needExposure = exposure !== 0;
             const needShadows = shadows !== 0;
+            const needHighlights = highlights !== 0;
             
             // 提前检查是否有任何调整需要应用，如果没有则直接返回
             if (!needBrightness && !needContrast && !needSaturation && 
-                !needTemperature && !needTint && !needExposure && !useUserMul && !needShadows) {
+                !needTemperature && !needTint && !needExposure && !useUserMul && !needShadows && !needHighlights) {
                 return;
             }
             
@@ -757,22 +761,40 @@
                 }
                   
                 // 应用阴影调整
-                if (needShadows) {
-                    // 阴影调整算法 - 只影响暗部区域
-                    const shadowThreshold = 64; // 阴影阈值
-                    const shadowAdjustment = shadows / 100; // 将阴影值转换为调整系数
+                    if (needShadows) {
+                        // 阴影调整算法 - 只影响暗部区域
+                        const shadowThreshold = 64; // 阴影阈值
+                        const shadowAdjustment = shadows / 100; // 将阴影值转换为调整系数
+                        
+                        // 只对低于阈值的像素应用调整
+                        if (r < shadowThreshold) {
+                            r = min(shadowThreshold, max(0, r + (shadowThreshold - r) * shadowAdjustment));
+                        }
+                        if (g < shadowThreshold) {
+                            g = min(shadowThreshold, max(0, g + (shadowThreshold - g) * shadowAdjustment));
+                        }
+                        if (b < shadowThreshold) {
+                            b = min(shadowThreshold, max(0, b + (shadowThreshold - b) * shadowAdjustment));
+                        }
+                    }
                     
-                    // 只对低于阈值的像素应用调整
-                    if (r < shadowThreshold) {
-                        r = min(shadowThreshold, max(0, r + (shadowThreshold - r) * shadowAdjustment));
+                    // 应用高光调整
+                    if (needHighlights) {
+                        // 高光调整算法 - 只影响亮部区域
+                        const highlightThreshold = 192; // 高光阈值
+                        const highlightAdjustment = highlights / 100; // 将高光值转换为调整系数
+                        
+                        // 只对高于阈值的像素应用调整
+                        if (r > highlightThreshold) {
+                            r = max(highlightThreshold, min(255, r - (r - highlightThreshold) * highlightAdjustment));
+                        }
+                        if (g > highlightThreshold) {
+                            g = max(highlightThreshold, min(255, g - (g - highlightThreshold) * highlightAdjustment));
+                        }
+                        if (b > highlightThreshold) {
+                            b = max(highlightThreshold, min(255, b - (b - highlightThreshold) * highlightAdjustment));
+                        }
                     }
-                    if (g < shadowThreshold) {
-                        g = min(shadowThreshold, max(0, g + (shadowThreshold - g) * shadowAdjustment));
-                    }
-                    if (b < shadowThreshold) {
-                        b = min(shadowThreshold, max(0, b + (shadowThreshold - b) * shadowAdjustment));
-                    }
-                }
                   
                 // 写回数据
                 data[i] = r;
@@ -1024,6 +1046,12 @@
         // 为阴影滑块添加事件监听器
         shadowsSlider.addEventListener('input', function() {
             settings.shadows = parseInt(this.value);
+            debouncedImageUpdate();
+        });
+        
+        // 为高光滑块添加事件监听器
+        highlightsSlider.addEventListener('input', function() {
+            settings.highlights = parseInt(this.value);
             debouncedImageUpdate();
         });
         
