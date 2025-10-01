@@ -345,6 +345,48 @@
             background-color: #7f8c8d;
         }
         
+        /* 滤镜选择器样式 */
+        .filter-group {
+            margin-bottom: 15px;
+        }
+        
+        .filter-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 5px;
+        }
+        
+        .filter-select {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            background-color: white;
+            font-size: 14px;
+        }
+        
+        .save-filter-button {
+            padding: 8px 12px;
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            background-color: white;
+            color: var(--primary-color);
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        
+        .save-filter-button:hover:not(:disabled) {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        .save-filter-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
         .curve-editor {
             height: 150px;
             border: 1px solid var(--border-color);
@@ -427,6 +469,17 @@
                         <span class="value-display" id="saturation-value">100</span>
                     </div>
                 </div>
+                
+                <!-- 滤镜选择器 -->
+                <div class="filter-group">
+                    <label for="filter-select">预设滤镜</label>
+                    <div class="filter-controls">
+                        <select id="filter-select" class="filter-select">
+                            <option value="none">无滤镜</option>
+                        </select>
+                        <button id="save-filter-button" class="save-filter-button" disabled>保存当前配置</button>
+                    </div>
+                </div>
                 <div class="button-group">
                     <button id="apply-button" disabled>应用设置</button>
                     <button id="reset-button" class="reset-button" disabled>重置</button>
@@ -489,7 +542,7 @@
                         </div>
                         <div class="color-slider">
                             <label for="whites">白色</label>
-                            <input type="range" id="whites" min="0" max="100" step="1" value="100">
+                            <input type="range" id="whites" min="0" max="100" step="1" value="50">
                         </div>
                     </div>
                 </div>
@@ -590,6 +643,8 @@
         const rotateSlider = document.getElementById('rotate');
         const scaleSlider = document.getElementById('scale');
         const curveEditor = document.getElementById('curve-editor');
+        const filterSelect = document.getElementById('filter-select');
+        const saveFilterButton = document.getElementById('save-filter-button');
         
         // 标签页相关元素
         const tabs = document.querySelectorAll('.tab');
@@ -610,6 +665,43 @@
             exp_correc: 1,
             adjust_maximum_thr: 0.75,
             shadows: 0
+        };
+        
+        // 存储滤镜预设
+        let filterPresets = {
+            '高对比度': {
+                bright: 1.0,
+                exp_shift: 0.1,
+                user_sat: 120,
+                highlights: 10,
+                shadows: -10,
+                contrast: 20
+            },
+            '复古胶片': {
+                bright: 0.9,
+                exp_shift: 0.0,
+                user_sat: 110,
+                highlights: -5,
+                shadows: 10,
+                red_tint: 5,
+                green_tint: -3,
+                blue_tint: -10
+            },
+            '风景模式': {
+                bright: 1.1,
+                exp_shift: 0.2,
+                user_sat: 130,
+                highlights: -10,
+                shadows: 5,
+                green_tint: 5,
+                blue_tint: 5
+            },
+            '黑白模式': {
+                bright: 1.0,
+                exp_shift: 0.0,
+                user_sat: 0,
+                contrast: 15
+            }
         };
         
         // 配置参数
@@ -641,6 +733,114 @@
         
         // 全局变量保存当前选择的文件对象
         let currentSelectedFile;
+        
+        // 初始化滤镜选择器
+        function initFilterSelector() {
+            // 清空现有选项（保留默认的"无滤镜"选项）
+            while (filterSelect.options.length > 1) {
+                filterSelect.remove(1);
+            }
+            
+            // 添加滤镜预设选项
+            for (const presetName in filterPresets) {
+                const option = document.createElement('option');
+                option.value = presetName;
+                option.textContent = presetName;
+                filterSelect.appendChild(option);
+            }
+        }
+        
+        // 应用滤镜预设
+        function applyFilterPreset(presetName) {
+            if (presetName === 'none' || !filterPresets[presetName]) {
+                return;
+            }
+            
+            const preset = filterPresets[presetName];
+            
+            // 应用预设值到设置对象
+            for (const key in preset) {
+                switch (key) {
+                    case 'bright':
+                        brightnessSlider.value = preset[key];
+                        brightnessValue.textContent = preset[key].toFixed(1);
+                        settings[key] = preset[key];
+                        break;
+                    case 'exp_shift':
+                        exposureSlider.value = preset[key];
+                        exposureValue.textContent = preset[key].toFixed(1);
+                        settings[key] = preset[key];
+                        break;
+                    case 'user_sat':
+                        saturationSlider.value = preset[key];
+                        saturationValue.textContent = preset[key];
+                        settings[key] = preset[key];
+                        break;
+                    case 'contrast':
+                        contrastSlider.value = preset[key];
+                        contrastValue.textContent = preset[key];
+                        break;
+                    case 'highlights':
+                        highlightsSlider.value = preset[key];
+                        settings[key] = preset[key];
+                        break;
+                    case 'shadows':
+                        shadowsSlider.value = preset[key];
+                        settings[key] = preset[key];
+                        break;
+                    case 'red_tint':
+                        redTintSlider.value = preset[key];
+                        break;
+                    case 'green_tint':
+                        greenTintSlider.value = preset[key];
+                        break;
+                    case 'blue_tint':
+                        blueTintSlider.value = preset[key];
+                        break;
+                    // 添加其他需要的参数处理
+                }
+            }
+            
+            // 触发图像更新
+            if (cachedImageData) {
+                debouncedImageUpdate();
+            }
+        }
+        
+        // 保存当前配置为新的滤镜预设
+        function saveCurrentConfigAsPreset() {
+            const presetName = prompt('请输入滤镜名称:', '新滤镜' + (Object.keys(filterPresets).length + 1));
+            
+            if (!presetName || presetName.trim() === '') {
+                alert('滤镜名称不能为空！');
+                return;
+            }
+            
+            // 获取当前所有设置
+            const currentConfig = {
+                bright: parseFloat(brightnessSlider.value),
+                exp_shift: parseFloat(exposureSlider.value),
+                user_sat: parseInt(saturationSlider.value),
+                contrast: parseInt(contrastSlider.value),
+                highlights: parseInt(highlightsSlider.value),
+                shadows: parseInt(shadowsSlider.value),
+                red_tint: parseInt(redTintSlider.value),
+                green_tint: parseInt(greenTintSlider.value),
+                blue_tint: parseInt(blueTintSlider.value)
+                // 添加其他需要保存的参数
+            };
+            
+            // 保存预设
+            filterPresets[presetName] = currentConfig;
+            
+            // 更新选择器
+            initFilterSelector();
+            
+            // 选择新保存的预设
+            filterSelect.value = presetName;
+            
+            alert('滤镜预设 "' + presetName + '" 已保存！');
+        }
 
         // 应用调整到缓存数据
         function applyAdjustmentsToCachedData(data, width, height) {
@@ -667,6 +867,8 @@
             
             // 获取高光值并检查是否需要应用高光调整
             const highlights = settings.highlights !== undefined ? settings.highlights : parseInt(highlightsSlider.value);
+            // 获取白色值并检查是否需要应用白色调整
+            const whites = settings.whites !== undefined ? settings.whites : parseInt(whitesSlider.value);
             
             // 标记是否需要进行某种调整，避免不必要的计算
             const needBrightness = brightness !== 1.0;
@@ -677,10 +879,11 @@
             const needExposure = exposure !== 0;
             const needShadows = shadows !== 0;
             const needHighlights = highlights !== 0;
+            const needWhites = whites !== 100; // 白色滑块默认值为100
             
             // 提前检查是否有任何调整需要应用，如果没有则直接返回
             if (!needBrightness && !needContrast && !needSaturation && 
-                !needTemperature && !needTint && !needExposure && !useUserMul && !needShadows && !needHighlights) {
+                !needTemperature && !needTint && !needExposure && !useUserMul && !needShadows && !needHighlights && !needWhites) {
                 return;
             }
             
@@ -786,13 +989,37 @@
                         
                         // 只对高于阈值的像素应用调整
                         if (r > highlightThreshold) {
-                            r = max(highlightThreshold, min(255, r - (r - highlightThreshold) * highlightAdjustment));
+                            r = max(highlightThreshold, min(255, r + (r - highlightThreshold) * highlightAdjustment));
                         }
                         if (g > highlightThreshold) {
-                            g = max(highlightThreshold, min(255, g - (g - highlightThreshold) * highlightAdjustment));
+                            g = max(highlightThreshold, min(255, g + (g - highlightThreshold) * highlightAdjustment));
                         }
                         if (b > highlightThreshold) {
-                            b = max(highlightThreshold, min(255, b - (b - highlightThreshold) * highlightAdjustment));
+                            b = max(highlightThreshold, min(255, b + (b - highlightThreshold) * highlightAdjustment));
+                        }
+                    }
+                    
+                    // 应用白色调整
+                    if (needWhites) {
+                        // 白色调整算法 - 只影响最亮的部分
+                        const whiteThreshold = 220; // 白色阈值（比高光阈值更高）
+                        const whiteAdjustment = whites / 100; // 将白色值转换为调整系数
+                        
+                        // 只对高于阈值的像素应用调整
+                        if (r > whiteThreshold || g > whiteThreshold || b > whiteThreshold) {
+                            // 计算亮度
+                            const brightness = (r + g + b) / 3;
+                            
+                            // 仅对接近白色的像素进行调整
+                            if (brightness > whiteThreshold) {
+                                // 调整系数：当值大于100时增加亮度，小于100时降低亮度
+                                const adjustFactor = whiteAdjustment;
+                                
+                                // 对RGB通道分别应用调整，保持色彩平衡
+                                r = min(255, r * adjustFactor);
+                                g = min(255, g * adjustFactor);
+                                b = min(255, b * adjustFactor);
+                            }
                         }
                     }
                   
@@ -1052,6 +1279,12 @@
         // 为高光滑块添加事件监听器
         highlightsSlider.addEventListener('input', function() {
             settings.highlights = parseInt(this.value);
+            debouncedImageUpdate();
+        });
+        
+        // 为白色滑块添加事件监听器
+        whitesSlider.addEventListener('input', function() {
+            settings.whites = parseInt(this.value);
             debouncedImageUpdate();
         });
         
@@ -1347,7 +1580,167 @@
         }
         
         // 初始化曲线编辑器
-        window.addEventListener('load', initCurveEditor);
+        window.addEventListener('load', () => {
+            initCurveEditor();
+            initFilterSelector();
+        });
+        
+        // 为滤镜选择器添加事件监听器
+        filterSelect.addEventListener('change', (e) => {
+            applyFilterPreset(e.target.value);
+        });
+        
+        // 为保存滤镜按钮添加事件监听器
+        saveFilterButton.addEventListener('click', saveCurrentConfigAsPreset);
+        
+        // 当图像加载后启用保存滤镜按钮
+        rawFileInput.addEventListener('change', () => {
+            saveFilterButton.disabled = false;
+        });
+        
+        // 当重置设置时，重置滤镜选择器
+        resetButton.addEventListener('click', () => {
+            filterSelect.value = 'none';
+        });
+        
+        // 实现点击图像容器查看大图功能
+        const imageContainer = document.querySelector('.image-container');
+        
+        // 创建全屏预览模态框
+        function createFullscreenModal() {
+            // 检查模态框是否已存在
+            if (document.getElementById('fullscreen-modal')) {
+                return document.getElementById('fullscreen-modal');
+            }
+            
+            // 创建模态框容器
+            const modal = document.createElement('div');
+            modal.id = 'fullscreen-modal';
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+            modal.style.display = 'none';
+            modal.style.justifyContent = 'center';
+            modal.style.alignItems = 'center';
+            modal.style.zIndex = '1000';
+            modal.style.cursor = 'pointer';
+            modal.style.transition = 'opacity 0.3s ease';
+            
+            // 创建关闭按钮
+            const closeButton = document.createElement('button');
+            closeButton.textContent = '×';
+            closeButton.style.position = 'absolute';
+            closeButton.style.top = '20px';
+            closeButton.style.right = '30px';
+            closeButton.style.fontSize = '40px';
+            closeButton.style.color = 'white';
+            closeButton.style.backgroundColor = 'transparent';
+            closeButton.style.border = 'none';
+            closeButton.style.cursor = 'pointer';
+            closeButton.style.outline = 'none';
+            closeButton.style.userSelect = 'none';
+            closeButton.style.zIndex = '1001';
+            
+            // 创建显示图像的容器
+            const imageWrapper = document.createElement('div');
+            imageWrapper.style.maxWidth = '90%';
+            imageWrapper.style.maxHeight = '90%';
+            imageWrapper.style.overflow = 'hidden';
+            
+            // 创建用于显示大图的canvas
+            const fullscreenCanvas = document.createElement('canvas');
+            fullscreenCanvas.id = 'fullscreen-canvas';
+            fullscreenCanvas.style.maxWidth = '100%';
+            fullscreenCanvas.style.maxHeight = '100vh';
+            fullscreenCanvas.style.boxShadow = '0 0 30px rgba(255, 255, 255, 0.3)';
+            
+            // 组装元素
+            imageWrapper.appendChild(fullscreenCanvas);
+            modal.appendChild(closeButton);
+            modal.appendChild(imageWrapper);
+            document.body.appendChild(modal);
+            
+            // 添加关闭事件
+            function closeModal() {
+                modal.style.opacity = '0';
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                }, 300);
+            }
+            
+            closeButton.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+            
+            // 添加ESC键关闭功能
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.style.display === 'flex') {
+                    closeModal();
+                }
+            });
+            
+            return modal;
+        }
+        
+        // 显示全屏预览
+        function showFullscreenPreview() {
+            // 只有当有图像数据时才显示预览
+            if (!cachedImageData || !cachedImageData.data) {
+                return;
+            }
+            
+            // 创建或获取模态框
+            const modal = createFullscreenModal();
+            const fullscreenCanvas = document.getElementById('fullscreen-canvas');
+            const fullscreenCtx = fullscreenCanvas.getContext('2d');
+            
+            // 设置全屏canvas尺寸为原始图像尺寸
+            fullscreenCanvas.width = cachedImageData.width;
+            fullscreenCanvas.height = cachedImageData.height;
+            
+            // 创建临时数组进行处理，避免直接修改缓存数据
+            const tempData = new Uint8ClampedArray(cachedImageData.data.length);
+            tempData.set(cachedImageData.data);
+            
+            // 应用当前调整到缓存数据
+            applyAdjustmentsToCachedData(tempData, cachedImageData.width, cachedImageData.height);
+            
+            // 创建ImageData对象
+            const imageData = new ImageData(tempData, cachedImageData.width, cachedImageData.height);
+            
+            // 清空画布并绘制图像
+            fullscreenCtx.clearRect(0, 0, fullscreenCanvas.width, fullscreenCanvas.height);
+            fullscreenCtx.putImageData(imageData, 0, 0);
+            
+            // 显示模态框
+            modal.style.display = 'flex';
+            // 强制重排以启用过渡效果
+            void modal.offsetWidth;
+            modal.style.opacity = '1';
+        }
+        
+        // 为图像容器添加点击事件监听器
+        imageContainer.addEventListener('click', showFullscreenPreview);
+        
+        // 为了提升用户体验，添加鼠标悬停效果
+        imageContainer.style.cursor = 'pointer';
+        imageContainer.style.transition = 'transform 0.2s ease';
+        
+        imageContainer.addEventListener('mouseenter', () => {
+            if (cachedImageData && cachedImageData.data) {
+                imageContainer.style.transform = 'scale(1.01)';
+            }
+        });
+        
+        imageContainer.addEventListener('mouseleave', () => {
+            imageContainer.style.transform = 'scale(1)';
+        });
     </script>
 </body>
 </html>
