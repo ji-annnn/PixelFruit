@@ -14,8 +14,8 @@
 
 当前版本已完成对以下品牌相机的支持：
 
-- 索尼（Sony）系列相机 RAW 格式
-
+- 索尼（Sony）系列相机 ARW 格式
+- 富士（Fuji）系列相机 RAF 格式
 更多相机品牌支持正在开发中，敬请期待！
 
 ## 使用方法
@@ -46,7 +46,7 @@
 https://github.com/ybouane/LibRaw-Wasm#
 ```
 
-
+本地跑请用live server
 
 ## 联系方式
 
