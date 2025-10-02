@@ -35,69 +35,7 @@ export function readFileAsArrayBuffer(file) {
     });
 }
 
-/**
- * 应用透视和旋转变换
- * @param {ImageData} imageData - 要处理的图像数据
- * @param {CanvasRenderingContext2D} ctx - 画布上下文
- * @param {HTMLCanvasElement} canvas - 主画布元素
- * @param {number} verticalTilt - 垂直倾斜度
- * @param {number} horizontalTilt - 水平倾斜度
- * @param {number} rotation - 旋转角度（度）
- * @param {number} scale - 缩放比例（百分比转换为小数）
- */
-export function applyPerspectiveTransform(imageData, ctx, canvas, verticalTilt, horizontalTilt, rotation, scale) {
-    // 获取图像尺寸
-    const width = imageData.width;
-    const height = imageData.height;
-    
-    // 如果没有变换需要应用，直接绘制到画布
-    if (verticalTilt === 0 && horizontalTilt === 0 && rotation === 0 && scale === 1) {
-        // 直接绘制而不创建临时canvas，提高性能
-        ctx.putImageData(imageData, 0, 0);
-        return;
-    }
-    
-    // 只有在需要变换时才创建临时canvas
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = width;
-    tempCanvas.height = height;
-    const tempCtx = tempCanvas.getContext('2d');
-    
-    // 绘制图像数据到临时canvas
-    tempCtx.putImageData(imageData, 0, 0);
-    
-    // 缓存canvas中心坐标
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-    
-    // 保存当前状态
-    ctx.save();
-    
-    // 移动到画布中心
-    ctx.translate(centerX, centerY);
-    
-    // 应用旋转（如果有）
-    if (rotation !== 0) {
-        ctx.rotate((rotation * Math.PI) / 180);
-    }
-    
-    // 应用缩放（如果有）
-    if (scale !== 1) {
-        ctx.scale(scale, scale);
-    }
-    
-    // 应用透视变换（如果有）
-    if (verticalTilt !== 0 || horizontalTilt !== 0) {
-        // 使用正确的6参数2D变换矩阵格式
-        ctx.transform(1, verticalTilt/5000, horizontalTilt/5000, 1, 0, 0);
-    }
-    
-    // 绘制图像（从中心偏移回原点）
-    ctx.drawImage(tempCanvas, -width / 2, -height / 2);
-    
-    // 恢复状态
-    ctx.restore();
-}
+
 
 /**
  * 更新图像从缓存
@@ -108,7 +46,7 @@ export function applyPerspectiveTransform(imageData, ctx, canvas, verticalTilt, 
  * @param {HTMLCanvasElement} canvas - 主画布元素
  * @param {Function} applyAdjustmentsToCachedData - 应用调整到缓存数据的函数
  */
-export function updateImageFromCache(cachedImageData, width, height, ctx, canvas, applyAdjustmentsToCachedData) {
+export async function updateImageFromCache(cachedImageData, width, height, ctx, canvas, applyAdjustmentsToCachedData) {
     if (!cachedImageData || !cachedImageData.data) {
         console.error('没有可用的缓存图像数据');
         return;
@@ -132,18 +70,18 @@ export function updateImageFromCache(cachedImageData, width, height, ctx, canvas
         // 清空画布
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // 应用透视变换
-        const verticalTiltSlider = document.getElementById('vertical-tilt');
-        const horizontalTiltSlider = document.getElementById('horizontal-tilt');
-        const rotateSlider = document.getElementById('rotate');
-        const scaleSlider = document.getElementById('scale');
-        
-        const verticalTilt = verticalTiltSlider ? parseFloat(verticalTiltSlider.value) : 0;
-        const horizontalTilt = horizontalTiltSlider ? parseFloat(horizontalTiltSlider.value) : 0;
-        const rotation = rotateSlider ? parseInt(rotateSlider.value) : 0;
-        const scale = scaleSlider ? parseInt(scaleSlider.value) / 100 : 1;
-        
-        applyPerspectiveTransform(imageData, ctx, canvas, verticalTilt, horizontalTilt, rotation, scale);
+        // 尝试从Correction.js导入校正模块
+        try {
+            const { correctionModule } = await import('./Correction.js');
+            // 使用校正模块应用透视变换
+            correctionModule.applyPerspectiveTransform(imageData, ctx, canvas);
+        } catch (importError) {
+            // 如果导入失败，回退到原始的透视变换实现
+            console.warn('无法导入Correction.js模块，使用回退的透视变换实现:', importError);
+            
+            // 回退实现：直接绘制图像
+            ctx.putImageData(imageData, 0, 0);
+        }
     } catch (error) {
         console.error('从缓存更新图像时出错:', error);
     }
@@ -188,4 +126,55 @@ export function initCurveEditor(curveEditor) {
     
     // 初始化绘制
     drawCurve();
+}
+
+/**
+ * 导出图像为指定格式
+ * @param {HTMLCanvasElement} canvas - 要导出的画布元素
+ * @param {string} format - 导出格式 ('png' 或 'jpeg')
+ * @param {number} quality - 导出质量 (0-1, 仅对jpeg有效)
+ * @param {string} filename - 导出的文件名
+ * @returns {Promise<void>} 导出完成的Promise
+ */
+export function exportImage(canvas, format = 'png', quality = 0.9, filename = 'exported-image') {
+    return new Promise((resolve, reject) => {
+        try {
+            // 验证格式
+            format = format.toLowerCase();
+            if (!['png', 'jpeg', 'jpg'].includes(format)) {
+                format = 'png'; // 默认使用png格式
+            }
+            
+            // 验证质量参数
+            quality = Math.max(0, Math.min(1, quality));
+            
+            // 确保文件名没有扩展名
+            filename = filename.replace(/\.(png|jpeg|jpg)$/i, '');
+            
+            // 添加正确的文件扩展名
+            const extension = format === 'jpg' ? 'jpeg' : format;
+            const fullFilename = `${filename}.${extension}`;
+            
+            // 转换canvas为数据URL
+            const dataURL = canvas.toDataURL(`image/${extension}`, quality);
+            
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = dataURL;
+            link.download = fullFilename;
+            
+            // 触发下载
+            document.body.appendChild(link);
+            link.click();
+            
+            // 清理
+            setTimeout(() => {
+                document.body.removeChild(link);
+                resolve();
+            }, 100);
+        } catch (error) {
+            console.error('导出图像时出错:', error);
+            reject(error);
+        }
+    });
 }

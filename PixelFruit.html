@@ -484,8 +484,9 @@
                     </div>
                 </div>
                 <div class="button-group">
-                    <button id="apply-button" disabled>应用设置</button>
                     <button id="reset-button" class="reset-button" disabled>重置</button>
+                    <button id="export-png-button" class="export-button" disabled>导出 PNG</button>
+                    <button id="export-jpeg-button" class="export-button" disabled>导出 JPEG</button>
                 </div>
             </div>
         </div>
@@ -617,8 +618,9 @@
         const canvas = document.getElementById('image-canvas');
         const ctx = canvas.getContext('2d');
         const statusMessage = document.getElementById('status-message');
-        const applyButton = document.getElementById('apply-button');
         const resetButton = document.getElementById('reset-button');
+        const exportPngButton = document.getElementById('export-png-button');
+        const exportJpegButton = document.getElementById('export-jpeg-button');
         
         // 获取所有控件元素
         const useAutoWbCheckbox = document.getElementById('use-auto-wb');
@@ -743,10 +745,23 @@
         const libraw = new LibRaw();
         
         // 从Basic.js导入基础功能函数
-        const { debounce, readFileAsArrayBuffer, applyPerspectiveTransform, updateImageFromCache, initCurveEditor } = await import('./Basic.js');
+        const { debounce, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache, initCurveEditor, exportImage } = await import('./Basic.js');
+        
+        // 从Correction.js导入校正模块
+        const { correctionModule } = await import('./Correction.js');
         
         // 全局变量保存当前选择的文件对象
         let currentSelectedFile;
+        
+        // 创建统一的防抖图像处理函数
+        const debouncedImageUpdate = debounce(async () => {
+            if (cachedImageData) {
+                await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+            }
+        }, 66); // 约15fps的刷新率，平衡响应速度和性能
+        
+        // 初始化校正模块
+        correctionModule.init(debouncedImageUpdate);
         
         // 初始化滤镜选择器
         function initFilterSelector() {
@@ -906,8 +921,9 @@
                 currentFileBuffer = new Uint8Array(arrayBuffer);
                 
                 // 启用按钮
-                applyButton.disabled = false;
                 resetButton.disabled = false;
+                exportPngButton.disabled = false;
+                exportJpegButton.disabled = false;
                 
                 // 显示处理状态
                 statusMessage.textContent = '正在处理 RAW 文件...';
@@ -948,7 +964,7 @@
                     console.error('缓存图像数据失败:', error);
                 }
             // 显示初始图像
-            updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+            await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
                 
                 // 隐藏处理状态
                 statusMessage.textContent = '处理完成';
@@ -962,10 +978,7 @@
             }
         });
         
-        // 应用按钮点击事件
-        applyButton.addEventListener('click', async () => {
-            updateImageWithNewSettings();
-        });
+        // 校正模块已处理垂直倾斜、水平倾斜、旋转和缩放滑块的事件监听器
         
         // 重置按钮点击事件
         resetButton.addEventListener('click', () => {
@@ -1037,13 +1050,6 @@
         
 
         
-        // 创建统一的防抖图像处理函数
-        const debouncedImageUpdate = debounce(() => {
-            if (cachedImageData) {
-                updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
-            }
-        }, 66); // 约15fps的刷新率，平衡响应速度和性能
-        
         // 防抖处理颜色调整
         const debouncedColorUpdate = debounce(() => {
             updateWhiteBalanceCoefficients(settings);
@@ -1065,6 +1071,17 @@
         
 
         
+        // 无参数版本的updateImageFromCache函数
+        async function updateImageFromCache() {
+            // 当无参数调用时，使用从Basic.js导入的版本
+            if (cachedImageData) {
+                await basicUpdateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+            } else {
+                // 如果没有缓存，调用updateImage函数
+                await updateImage();
+            }
+        }
+
         // 使用新设置更新图像
         async function updateImageWithNewSettings() {
             if (!currentSelectedFile) return;
@@ -1080,7 +1097,7 @@
                 await libraw.open(bufferCopy, settings);
                 
                 // 更新图像显示
-                updateImageFromCache();
+                await updateImageFromCache();
                 
                 statusMessage.textContent = '设置已应用';
                 setTimeout(() => {
@@ -1098,7 +1115,7 @@
                 // 优先使用缓存数据
                 if (cachedImageData && cachedImageData.data) {
                     // 直接使用缓存数据进行渲染
-                    updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+                    await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
                     return;
                 }
                 
@@ -1153,12 +1170,8 @@
                     // 由于 applyPerspectiveTransform 函数会直接绘制到主画布，我们需要先清空主画布
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
-                    // 调用 applyPerspectiveTransform 函数应用变换并绘制到主画布
-                    const verticalTilt = parseFloat(verticalTiltSlider.value);
-                    const horizontalTilt = parseFloat(horizontalTiltSlider.value);
-                    const rotation = parseInt(rotateSlider.value);
-                    const scale = parseInt(scaleSlider.value) / 100;
-                    applyPerspectiveTransform(canvasImageData, ctx, canvas, verticalTilt, horizontalTilt, rotation, scale);
+                    // 使用校正模块应用透视变换
+                    correctionModule.applyPerspectiveTransform(canvasImageData, ctx, canvas);
                 } else {
                     // 已经是 RGBA 格式
                     const canvasImageData = ctx.createImageData(imageData.width, imageData.height);
@@ -1337,6 +1350,47 @@
         
         imageContainer.addEventListener('mouseleave', () => {
             imageContainer.style.transform = 'scale(1)';
+        });
+        
+        // 导出按钮事件监听器
+        exportPngButton.addEventListener('click', async () => {
+            try {
+                // 使用当前文件名（如果有）或默认名称
+                const baseFilename = currentSelectedFile ? currentSelectedFile.name.replace(/\.[^/.]+$/, '') : 'exported-image';
+                
+                statusMessage.textContent = '正在导出 PNG 图像...';
+                await exportImage(canvas, 'png', 1.0, baseFilename);
+                statusMessage.textContent = 'PNG 图像导出成功';
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                }, 2000);
+            } catch (error) {
+                console.error('导出 PNG 图像失败:', error);
+                statusMessage.textContent = '导出 PNG 图像失败';
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                }, 2000);
+            }
+        });
+        
+        exportJpegButton.addEventListener('click', async () => {
+            try {
+                // 使用当前文件名（如果有）或默认名称
+                const baseFilename = currentSelectedFile ? currentSelectedFile.name.replace(/\.[^/.]+$/, '') : 'exported-image';
+                
+                statusMessage.textContent = '正在导出 JPEG 图像...';
+                await exportImage(canvas, 'jpeg', 0.9, baseFilename);
+                statusMessage.textContent = 'JPEG 图像导出成功';
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                }, 2000);
+            } catch (error) {
+                console.error('导出 JPEG 图像失败:', error);
+                statusMessage.textContent = '导出 JPEG 图像失败';
+                setTimeout(() => {
+                    statusMessage.textContent = '';
+                }, 2000);
+            }
         });
     </script>
 </body>
