@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>像素果</title>
     <script type="module" src="color.js" defer></script>
+    <script type="module" src="Basic.js" defer></script>
 
     <style>
         :root {
@@ -741,21 +742,8 @@
         // 创建 LibRaw 实例
         const libraw = new LibRaw();
         
-        // 添加防抖函数 - 优化版本
-        function debounce(func, wait, immediate = false) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    timeout = null;
-                    if (!immediate) func.apply(this, args);
-                };
-                const callNow = immediate && !timeout;
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-                if (callNow) func.apply(this, args);
-                return callNow; // 返回是否立即执行了函数，便于调试
-            };
-        }
+        // 从Basic.js导入基础功能函数
+        const { debounce, readFileAsArrayBuffer, applyPerspectiveTransform, updateImageFromCache, initCurveEditor } = await import('./Basic.js');
         
         // 全局变量保存当前选择的文件对象
         let currentSelectedFile;
@@ -897,52 +885,7 @@
 
 
         // 从缓存更新图像
-        function updateImageFromCache() {
-            // 快速检查缓存数据是否存在
-            if (!cachedImageData || !cachedImageData.data) {
-                statusMessage.textContent = '没有缓存数据';
-                return;
-            }
 
-            try {
-                // 计算数据大小，避免重复访问
-                const width = cachedImageData.width;
-                const height = cachedImageData.height;
-                const dataLength = cachedImageData.data.length;
-                
-                // 创建临时数组进行处理，避免直接修改缓存数据
-                const tempData = new Uint8ClampedArray(dataLength);
-                // 使用set方法进行批量复制，比循环复制更快
-                tempData.set(cachedImageData.data);
-                
-                // 应用当前调整到缓存数据
-                applyAdjustmentsToCachedData(tempData, width, height);
-                
-                // 创建ImageData对象
-                const imageData = new ImageData(tempData, width, height);
-
-                // 只在尺寸变化时才重新设置canvas尺寸，避免不必要的重绘
-                if (canvas.width !== width || canvas.height !== height) {
-                    canvas.width = width;
-                    canvas.height = height;
-                }
-                
-                // 清空画布
-                ctx.clearRect(0, 0, width, height);
-                
-                // 应用透视和旋转变换
-                applyPerspectiveTransform(imageData);
-                
-                // 更新状态消息（可选）
-                statusMessage.textContent = '图像已从缓存更新';
-                setTimeout(() => {
-                    statusMessage.textContent = '';
-                }, 1000);
-            } catch (error) {
-                console.error('从缓存更新图像失败:', error);
-                statusMessage.textContent = '缓存加载失败';
-            }
-        }
         
         // 监听文件选择
         rawFileInput.addEventListener('change', async (event) => {
@@ -1005,7 +948,7 @@
                     console.error('缓存图像数据失败:', error);
                 }
             // 显示初始图像
-            updateImageFromCache();
+            updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
                 
                 // 隐藏处理状态
                 statusMessage.textContent = '处理完成';
@@ -1097,7 +1040,7 @@
         // 创建统一的防抖图像处理函数
         const debouncedImageUpdate = debounce(() => {
             if (cachedImageData) {
-                updateImageFromCache();
+                updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
             }
         }, 66); // 约15fps的刷新率，平衡响应速度和性能
         
@@ -1120,15 +1063,7 @@
             debouncedImageUpdate();
         });
         
-        // 读取文件为 ArrayBuffer
-        function readFileAsArrayBuffer(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = () => reject(reader.error);
-                reader.readAsArrayBuffer(file);
-            });
-        }
+
         
         // 使用新设置更新图像
         async function updateImageWithNewSettings() {
@@ -1163,7 +1098,7 @@
                 // 优先使用缓存数据
                 if (cachedImageData && cachedImageData.data) {
                     // 直接使用缓存数据进行渲染
-                    updateImageFromCache();
+                    updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
                     return;
                 }
                 
@@ -1219,7 +1154,11 @@
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     
                     // 调用 applyPerspectiveTransform 函数应用变换并绘制到主画布
-                    applyPerspectiveTransform(canvasImageData);
+                    const verticalTilt = parseFloat(verticalTiltSlider.value);
+                    const horizontalTilt = parseFloat(horizontalTiltSlider.value);
+                    const rotation = parseInt(rotateSlider.value);
+                    const scale = parseInt(scaleSlider.value) / 100;
+                    applyPerspectiveTransform(canvasImageData, ctx, canvas, verticalTilt, horizontalTilt, rotation, scale);
                 } else {
                     // 已经是 RGBA 格式
                     const canvasImageData = ctx.createImageData(imageData.width, imageData.height);
@@ -1233,108 +1172,13 @@
         
 
         
-        // 应用透视和旋转变换
-        function applyPerspectiveTransform(imageData) {
-            // 获取当前变换参数
-            const verticalTilt = parseFloat(verticalTiltSlider.value);
-            const horizontalTilt = parseFloat(horizontalTiltSlider.value);
-            const rotation = parseInt(rotateSlider.value);
-            const scale = parseInt(scaleSlider.value) / 100;
-            
-            // 缓存常用值
-            const width = imageData.width;
-            const height = imageData.height;
-            
-            // 如果没有变换需要应用，直接绘制到画布
-            if (verticalTilt === 0 && horizontalTilt === 0 && rotation === 0 && scale === 1) {
-                // 直接绘制而不创建临时canvas，提高性能
-                ctx.putImageData(imageData, 0, 0);
-                return;
-            }
-            
-            // 只有在需要变换时才创建临时canvas
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            const tempCtx = tempCanvas.getContext('2d');
-            
-            // 绘制图像数据到临时canvas
-            tempCtx.putImageData(imageData, 0, 0);
-            
-            // 缓存canvas中心坐标
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            
-            // 保存当前状态
-            ctx.save();
-            
-            // 移动到画布中心
-            ctx.translate(centerX, centerY);
-            
-            // 应用旋转（如果有）
-            if (rotation !== 0) {
-                ctx.rotate((rotation * Math.PI) / 180);
-            }
-            
-            // 应用缩放（如果有）
-            if (scale !== 1) {
-                ctx.scale(scale, scale);
-            }
-            
-            // 应用透视变换（如果有）
-            if (verticalTilt !== 0 || horizontalTilt !== 0) {
-                // 使用正确的6参数2D变换矩阵格式
-                ctx.transform(1, verticalTilt/5000, horizontalTilt/5000, 1, 0, 0);
-            }
-            
-            // 绘制图像（从中心偏移回原点）
-            ctx.drawImage(tempCanvas, -width / 2, -height / 2);
-            
-            // 恢复状态
-            ctx.restore();
-        }
+
         
-        // 初始化曲线编辑器（简化版）
-        function initCurveEditor() {
-            const rect = curveEditor.getBoundingClientRect();
-            const width = rect.width;
-            const height = rect.height;
-            
-            // 创建临时canvas用于绘制曲线
-            const curveCanvas = document.createElement('canvas');
-            curveCanvas.width = width;
-            curveCanvas.height = height;
-            curveCanvas.style.position = 'absolute';
-            curveCanvas.style.top = '0';
-            curveCanvas.style.left = '0';
-            curveEditor.appendChild(curveCanvas);
-            
-            const curveCtx = curveCanvas.getContext('2d');
-            
-            // 绘制网格和对角线
-            function drawCurve() {
-                // 清空画布
-                curveCtx.clearRect(0, 0, width, height);
-                
-                // 移除网格绘制代码
-                
-                // 绘制对角线（默认曲线）
-                const rootStyle = getComputedStyle(document.documentElement);
-                curveCtx.strokeStyle = rootStyle.getPropertyValue('--primary-color');
-                curveCtx.lineWidth = 2;
-                curveCtx.beginPath();
-                curveCtx.moveTo(0, height);
-                curveCtx.lineTo(width, 0);
-                curveCtx.stroke();
-            }
-            
-            // 初始化绘制
-            drawCurve();
-        }
+
         
         // 初始化曲线编辑器
         window.addEventListener('load', () => {
-            initCurveEditor();
+            initCurveEditor(curveEditor);
             initFilterSelector();
         });
         
