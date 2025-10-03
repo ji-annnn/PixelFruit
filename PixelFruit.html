@@ -904,6 +904,8 @@
             // 触发图像更新
             if (cachedImageData) {
                 debouncedImageUpdate();
+                // 触发直方图更新
+                updateHistogram();
             }
         }
         
