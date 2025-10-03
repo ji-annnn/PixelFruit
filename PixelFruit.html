@@ -392,6 +392,43 @@
         
         /* 曲线编辑器样式已移除 */
         
+        /* 直方图样式 */
+        .histogram-panel {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        
+        .histogram-panel .panel {
+            height: auto;
+        }
+        
+        .histogram-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .histogram-btn {
+            padding: 4px 12px;
+            border: 1px solid #ccc;
+            background-color: #f0f0f0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .histogram-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+        
+        #histogram-canvas {
+            width: 100%;
+            height: 150px;
+            display: block;
+            margin-top: 10px;
+        }
+        
         .perspective-controls {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -585,6 +622,19 @@
                 </div>
             </div>
             
+            <div class="histogram-panel">
+                <div class="panel">
+                    <div class="panel-header">
+                        <h3>直方图</h3>
+                        <div class="histogram-controls">
+                            <button class="histogram-btn active" data-mode="luminance">亮度</button>
+                            <button class="histogram-btn" data-mode="rgb">RGB</button>
+                        </div>
+                    </div>
+                    <canvas id="histogram-canvas"></canvas>
+                </div>
+            </div>
+            
             <div class="panel">
                 <div class="panel-header">
                     <h3>图像元数据</h3>
@@ -732,8 +782,8 @@
         // 创建 LibRaw 实例
         const libraw = new LibRaw();
         
-        // 从Basic.js导入基础功能函数
-        const { debounce, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache, exportImage } = await import('./Basic.js');
+        // 从Basic.js导入基础功能函数，为debounce添加别名避免冲突
+        const { debounce: debounceUtil, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache, exportImage } = await import('./Basic.js');
         
         // 从Correction.js导入校正模块
         const { correctionModule } = await import('./Correction.js');
@@ -742,7 +792,7 @@
         let currentSelectedFile;
         
         // 创建统一的防抖图像处理函数
-        const debouncedImageUpdate = debounce(async () => {
+        const debouncedImageUpdate = debounceUtil(async () => {
             if (cachedImageData) {
                 await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
             }
@@ -959,6 +1009,9 @@
                 setTimeout(() => {
                     statusMessage.textContent = '';
                 }, 2000);
+                
+                // 更新直方图
+                updateHistogram();
             } catch (error) {
                 console.error('处理文件时出错:', error);
                 statusMessage.textContent = '处理失败';
@@ -1053,7 +1106,7 @@
 
         
         // 防抖处理颜色调整
-        const debouncedColorUpdate = debounce(() => {
+        const debouncedColorUpdate = debounceUtil(() => {
             updateWhiteBalanceCoefficients(settings);
             if (cachedImageData) {
                 debouncedImageUpdate();
@@ -1393,6 +1446,215 @@
                 }, 2000);
             }
         });
+        
+        // 直方图功能实现
+        const histogramCanvas = document.getElementById('histogram-canvas');
+        const histogramCtx = histogramCanvas.getContext('2d');
+        
+        // 确保canvas有适当的尺寸
+        function resizeHistogramCanvas() {
+            const parentWidth = histogramCanvas.parentElement.clientWidth;
+            histogramCanvas.width = parentWidth - 20; // 考虑内边距
+            histogramCanvas.height = 150;
+        }
+        
+        // 初始化时调整尺寸
+        resizeHistogramCanvas();
+        
+        // 窗口大小变化时重新调整尺寸
+        window.addEventListener('resize', resizeHistogramCanvas);
+        
+        // 绘制空直方图
+        function drawEmptyHistogram() {
+            histogramCtx.clearRect(0, 0, histogramCanvas.width, histogramCanvas.height);
+            
+            // 绘制坐标轴
+            histogramCtx.strokeStyle = '#ccc';
+            histogramCtx.lineWidth = 1;
+            
+            // 底部坐标轴
+            histogramCtx.beginPath();
+            histogramCtx.moveTo(0, histogramCanvas.height - 1);
+            histogramCtx.lineTo(histogramCanvas.width, histogramCanvas.height - 1);
+            histogramCtx.stroke();
+            
+            // 左侧坐标轴
+            histogramCtx.beginPath();
+            histogramCtx.moveTo(1, 0);
+            histogramCtx.lineTo(1, histogramCanvas.height);
+            histogramCtx.stroke();
+            
+            // 显示提示文字
+            histogramCtx.fillStyle = '#999';
+            histogramCtx.font = '14px Arial';
+            histogramCtx.textAlign = 'center';
+            histogramCtx.textBaseline = 'middle';
+            histogramCtx.fillText('请上传图像以查看直方图', histogramCanvas.width / 2, histogramCanvas.height / 2);
+        }
+        
+        // 绘制直方图
+        function drawHistogram(histogramData) {
+            if (!histogramData || !histogramData.length) {
+                drawEmptyHistogram();
+                return;
+            }
+            
+            // 清空画布
+            histogramCtx.clearRect(0, 0, histogramCanvas.width, histogramCanvas.height);
+            
+            const mode = document.querySelector('.histogram-btn.active').dataset.mode;
+            const barWidth = Math.max(1, histogramCanvas.width / 256);
+            
+            // 找出最大值用于归一化
+            let maxValue = 0;
+            for (let i = 0; i < histogramData.length; i++) {
+                if (mode === 'rgb') {
+                    maxValue = Math.max(maxValue, histogramData[i].r, histogramData[i].g, histogramData[i].b);
+                } else {
+                    maxValue = Math.max(maxValue, histogramData[i].l);
+                }
+            }
+            
+            // 绘制直方图
+            for (let i = 0; i < 256; i++) {
+                const x = i * barWidth;
+                
+                if (mode === 'rgb') {
+                    // RGB模式：分别绘制红、绿、蓝通道
+                    const rHeight = (histogramData[i].r / maxValue) * histogramCanvas.height;
+                    const gHeight = (histogramData[i].g / maxValue) * histogramCanvas.height;
+                    const bHeight = (histogramData[i].b / maxValue) * histogramCanvas.height;
+                    
+                    // 蓝色
+                    histogramCtx.fillStyle = 'rgba(0, 0, 255, 0.6)';
+                    histogramCtx.fillRect(x, histogramCanvas.height - bHeight, barWidth, bHeight);
+                    
+                    // 绿色
+                    histogramCtx.fillStyle = 'rgba(0, 255, 0, 0.6)';
+                    histogramCtx.fillRect(x, histogramCanvas.height - gHeight, barWidth, gHeight);
+                    
+                    // 红色
+                    histogramCtx.fillStyle = 'rgba(255, 0, 0, 0.6)';
+                    histogramCtx.fillRect(x, histogramCanvas.height - rHeight, barWidth, rHeight);
+                } else {
+                    // 亮度模式
+                    const height = (histogramData[i].l / maxValue) * histogramCanvas.height;
+                    histogramCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                    histogramCtx.fillRect(x, histogramCanvas.height - height, barWidth, height);
+                }
+            }
+            
+            // 绘制坐标轴
+            histogramCtx.strokeStyle = '#ccc';
+            histogramCtx.lineWidth = 1;
+            
+            // 底部坐标轴
+            histogramCtx.beginPath();
+            histogramCtx.moveTo(0, histogramCanvas.height - 1);
+            histogramCtx.lineTo(histogramCanvas.width, histogramCanvas.height - 1);
+            histogramCtx.stroke();
+            
+            // 左侧坐标轴
+            histogramCtx.beginPath();
+            histogramCtx.moveTo(1, 0);
+            histogramCtx.lineTo(1, histogramCanvas.height);
+            histogramCtx.stroke();
+        }
+        
+        // 计算直方图数据
+        function calculateHistogram(imageData) {
+            if (!imageData || !imageData.data) {
+                return null;
+            }
+            
+            const data = imageData.data;
+            const histogram = [];
+            
+            // 初始化直方图数组
+            for (let i = 0; i < 256; i++) {
+                histogram[i] = { r: 0, g: 0, b: 0, l: 0 };
+            }
+            
+            // 计算每个像素的颜色值出现频率
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                // 计算亮度 (简单的灰度转换公式)
+                const l = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+                
+                histogram[r].r++;
+                histogram[g].g++;
+                histogram[b].b++;
+                histogram[l].l++;
+            }
+            
+            return histogram;
+        }
+        
+        // 更新直方图
+        function updateHistogram() {
+            try {
+                if (!canvas || !cachedImageData || !cachedImageData.data) {
+                    drawEmptyHistogram();
+                    return;
+                }
+                
+                // 创建临时数组进行处理
+                const tempData = new Uint8ClampedArray(cachedImageData.data.length);
+                tempData.set(cachedImageData.data);
+                
+                // 应用当前调整到缓存数据
+                applyAdjustmentsToCachedData(tempData, cachedImageData.width, cachedImageData.height);
+                
+                // 创建ImageData对象
+                const imageData = new ImageData(tempData, cachedImageData.width, cachedImageData.height);
+                
+                // 计算直方图数据
+                const histogramData = calculateHistogram(imageData);
+                
+                // 绘制直方图
+                drawHistogram(histogramData);
+            } catch (error) {
+                console.error('更新直方图时出错:', error);
+                drawEmptyHistogram();
+            }
+        }
+        
+        // 添加直方图模式切换按钮事件
+        document.querySelectorAll('.histogram-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // 移除所有按钮的active类
+                document.querySelectorAll('.histogram-btn').forEach(b => b.classList.remove('active'));
+                // 为当前按钮添加active类
+                this.classList.add('active');
+                // 重新绘制直方图
+                updateHistogram();
+            });
+        });
+        
+        // 监听图像画布变化，更新直方图
+        const updateHistogramDebounced = debounceUtil(updateHistogram, 100); // 使用从Basic.js导入的debounceUtil函数
+        
+        // 尝试获取导出按钮，添加点击事件
+        const exportButtons = document.querySelectorAll('button[onclick^="exportImage"]');
+        exportButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                setTimeout(updateHistogram, 50); // 稍微延迟，确保图像已经更新
+            });
+        });
+        
+        // 为颜色调整滑块添加事件监听
+        const sliders = document.querySelectorAll('input[type="range"]');
+        sliders.forEach(slider => {
+            slider.addEventListener('input', updateHistogramDebounced);
+        });
+        
+        // 暴露更新直方图的方法供外部调用
+        window.updateHistogram = updateHistogram;
+        
+        // 初始绘制空直方图
+        drawEmptyHistogram();
     </script>
 </body>
 </html>
