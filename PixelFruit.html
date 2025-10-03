@@ -390,14 +390,7 @@
             cursor: not-allowed;
         }
         
-        .curve-editor {
-            height: 150px;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            margin-bottom: 15px;
-            position: relative;
-            background-color: #fafafa;
-        }
+        /* 曲线编辑器样式已移除 */
         
         .perspective-controls {
             display: grid;
@@ -472,6 +465,13 @@
                         <span class="value-display" id="saturation-value">100</span>
                     </div>
                 </div>
+                <div class="slider-group">
+                    <label for="contrast">对比度</label>
+                    <div class="slider-wrapper">
+                        <input type="range" id="contrast" min="-50" max="50" step="1" value="0">
+                        <span class="value-display" id="contrast-value">0</span>
+                    </div>
+                </div>
                 
                 <!-- 滤镜选择器 -->
                 <div class="filter-group">
@@ -498,19 +498,7 @@
                 <div class="status-message" id="status-message">请上传 RAW 文件以查看图像</div>
             </div>
             
-            <div class="panel">
-                <div class="panel-header">
-                    <h3>曲线调整</h3>
-                </div>
-                <div class="curve-editor" id="curve-editor"></div>
-                <div class="slider-group">
-                    <label for="contrast">对比度</label>
-                    <div class="slider-wrapper">
-                        <input type="range" id="contrast" min="-50" max="50" step="1" value="0">
-                        <span class="value-display" id="contrast-value">0</span>
-                    </div>
-                </div>
-            </div>
+            <!-- 曲线调整面板已移除 -->
         </div>
         
         <!-- 右侧面板：高级设置 -->
@@ -649,7 +637,7 @@
         const horizontalTiltSlider = document.getElementById('horizontal-tilt');
         const rotateSlider = document.getElementById('rotate');
         const scaleSlider = document.getElementById('scale');
-        const curveEditor = document.getElementById('curve-editor');
+        // 曲线编辑器已移除
         const filterSelect = document.getElementById('filter-select');
         const saveFilterButton = document.getElementById('save-filter-button');
         
@@ -745,7 +733,7 @@
         const libraw = new LibRaw();
         
         // 从Basic.js导入基础功能函数
-        const { debounce, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache, initCurveEditor, exportImage } = await import('./Basic.js');
+        const { debounce, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache, exportImage } = await import('./Basic.js');
         
         // 从Correction.js导入校正模块
         const { correctionModule } = await import('./Correction.js');
@@ -1018,7 +1006,21 @@
         });
         
         // 监听控件变化 - 已通过 registerColorEventListeners 函数处理
+        // 监听控件变化 - 已通过 registerColorEventListeners 函数处理
         
+        brightnessSlider.addEventListener('input', (e) => {
+            settings.bright = parseFloat(e.target.value);
+            brightnessValue.textContent = settings.bright.toFixed(1);
+            // 使用防抖处理的图像更新
+            debouncedImageUpdate();
+        });
+        
+        exposureSlider.addEventListener('input', (e) => {
+            settings.exp_shift = parseFloat(e.target.value);
+            exposureValue.textContent = settings.exp_shift.toFixed(1);
+            // 使用防抖处理的图像更新
+            debouncedImageUpdate();
+        });
         brightnessSlider.addEventListener('input', (e) => {
             settings.bright = parseFloat(e.target.value);
             brightnessValue.textContent = settings.bright.toFixed(1);
@@ -1189,9 +1191,8 @@
         
 
         
-        // 初始化曲线编辑器
+        // 初始化滤镜选择器
         window.addEventListener('load', () => {
-            initCurveEditor(curveEditor);
             initFilterSelector();
         });
         

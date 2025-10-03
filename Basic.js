@@ -88,45 +88,8 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
 }
 
 /**
- * 初始化曲线编辑器
- * @param {HTMLElement} curveEditor - 曲线编辑器容器元素
+ * 曲线编辑器功能已移除
  */
-export function initCurveEditor(curveEditor) {
-    const rect = curveEditor.getBoundingClientRect();
-    const width = rect.width;
-    const height = rect.height;
-    
-    // 创建临时canvas用于绘制曲线
-    const curveCanvas = document.createElement('canvas');
-    curveCanvas.width = width;
-    curveCanvas.height = height;
-    curveCanvas.style.position = 'absolute';
-    curveCanvas.style.top = '0';
-    curveCanvas.style.left = '0';
-    curveEditor.appendChild(curveCanvas);
-    
-    const curveCtx = curveCanvas.getContext('2d');
-    
-    // 绘制网格和对角线
-    function drawCurve() {
-        // 清空画布
-        curveCtx.clearRect(0, 0, width, height);
-        
-        // 移除网格绘制代码
-        
-        // 绘制对角线（默认曲线）
-        const rootStyle = getComputedStyle(document.documentElement);
-        curveCtx.strokeStyle = rootStyle.getPropertyValue('--primary-color');
-        curveCtx.lineWidth = 2;
-        curveCtx.beginPath();
-        curveCtx.moveTo(0, height);
-        curveCtx.lineTo(width, 0);
-        curveCtx.stroke();
-    }
-    
-    // 初始化绘制
-    drawCurve();
-}
 
 /**
  * 导出图像为指定格式
