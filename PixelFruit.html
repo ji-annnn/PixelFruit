@@ -825,6 +825,39 @@
             
             const preset = filterPresets[presetName];
             
+            // 首先将所有参数重置为默认值，确保滤镜切换时不会残留之前的设置
+            // 亮度
+            brightnessSlider.value = 1.0;
+            brightnessValue.textContent = '1.0';
+            settings.bright = 1.0;
+            
+            // 曝光补偿
+            exposureSlider.value = 0;
+            exposureValue.textContent = '0.0';
+            settings.exp_shift = 0;
+            
+            // 饱和度
+            saturationSlider.value = 100;
+            saturationValue.textContent = '100';
+            settings.user_sat = 100;
+            
+            // 对比度
+            contrastSlider.value = 0;
+            contrastValue.textContent = '0';
+            
+            // 高光
+            highlightsSlider.value = 0;
+            settings.highlights = 0;
+            
+            // 阴影
+            shadowsSlider.value = 0;
+            settings.shadows = 0;
+            
+            // 颜色色调
+            redTintSlider.value = 0;
+            greenTintSlider.value = 0;
+            blueTintSlider.value = 0;
+            
             // 应用预设值到设置对象
             for (const key in preset) {
                 switch (key) {
