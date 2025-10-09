@@ -68,20 +68,15 @@ export function applySharpness(data, width, height, sharpness) {
 }
 
 /**
- * 实现降噪函数
+ * 应用均值滤波降噪算法
  * @param {Uint8ClampedArray} data - RGBA图像数据
+ * @param {Uint8ClampedArray} tempData - 临时数组存储处理前的像素值
  * @param {number} width - 图像宽度
  * @param {number} height - 图像高度
  * @param {number} strength - 降噪强度
+ * @param {number} detailPreservation - 细节保留程度 (0-100)
  */
-export function applyNoiseReduction(data, width, height, strength) {
-    if (strength <= 0) return;
-    
-    // 创建临时数组以存储处理前的像素值
-    const tempData = new Uint8ClampedArray(data);
-    
-    // 高斯模糊用于降噪
-    // 使用简单的3x3均值滤波器作为基础降噪算法
+function applyMeanFilter(data, tempData, width, height, strength, detailPreservation) {
     for (let y = 1; y < height - 1; y++) {
         for (let x = 1; x < width - 1; x++) {
             const idx = (y * width + x) * 4;
@@ -100,17 +95,180 @@ export function applyNoiseReduction(data, width, height, strength) {
             avgG /= 9;
             avgB /= 9;
             
-            // 应用降噪强度，保留部分原始图像细节
+            // 应用降噪强度和细节保留
             const currentR = tempData[idx];
             const currentG = tempData[idx + 1];
             const currentB = tempData[idx + 2];
             
-            const reductionFactor = strength / 100;
+            // 计算边缘因子 - 基于当前像素与平均值的差异
+            const edgeFactorR = Math.abs(currentR - avgR) / 255;
+            const edgeFactorG = Math.abs(currentG - avgG) / 255;
+            const edgeFactorB = Math.abs(currentB - avgB) / 255;
+            const avgEdgeFactor = (edgeFactorR + edgeFactorG + edgeFactorB) / 3;
+            
+            // 细节保留系数 - 边缘区域保留更多细节
+            const detailFactor = Math.min(1, avgEdgeFactor * (detailPreservation / 50));
+            
+            // 降噪强度和细节保留的综合因子
+            const effectiveStrength = (strength / 100) * (1 - detailFactor);
             
             // 加权平均：降噪后的像素值 = 原始值*(1-降噪强度) + 平均值*降噪强度
-            data[idx] = Math.min(255, Math.max(0, currentR * (1 - reductionFactor) + avgR * reductionFactor));
-            data[idx + 1] = Math.min(255, Math.max(0, currentG * (1 - reductionFactor) + avgG * reductionFactor));
-            data[idx + 2] = Math.min(255, Math.max(0, currentB * (1 - reductionFactor) + avgB * reductionFactor));
+            data[idx] = Math.min(255, Math.max(0, currentR * (1 - effectiveStrength) + avgR * effectiveStrength));
+            data[idx + 1] = Math.min(255, Math.max(0, currentG * (1 - effectiveStrength) + avgG * effectiveStrength));
+            data[idx + 2] = Math.min(255, Math.max(0, currentB * (1 - effectiveStrength) + avgB * effectiveStrength));
         }
     }
+}
+
+/**
+ * 应用中值滤波降噪算法（对椒盐噪声效果较好）
+ * @param {Uint8ClampedArray} data - RGBA图像数据
+ * @param {Uint8ClampedArray} tempData - 临时数组存储处理前的像素值
+ * @param {number} width - 图像宽度
+ * @param {number} height - 图像高度
+ * @param {number} strength - 降噪强度
+ */
+function applyMedianFilter(data, tempData, width, height, strength) {
+    // 中值滤波的强度影响
+    const applyMedian = strength >= 50; // 超过50%强度时应用中值滤波
+    
+    for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+            const idx = (y * width + x) * 4;
+            
+            // 收集周围像素的颜色值
+            const rValues = [];
+            const gValues = [];
+            const bValues = [];
+            
+            for (let ky = -1; ky <= 1; ky++) {
+                for (let kx = -1; kx <= 1; kx++) {
+                    const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+                    rValues.push(tempData[neighborIdx]);
+                    gValues.push(tempData[neighborIdx + 1]);
+                    bValues.push(tempData[neighborIdx + 2]);
+                }
+            }
+            
+            // 排序并获取中值
+            rValues.sort((a, b) => a - b);
+            gValues.sort((a, b) => a - b);
+            bValues.sort((a, b) => a - b);
+            
+            const medianR = rValues[4]; // 第5个元素是中值
+            const medianG = gValues[4];
+            const medianB = bValues[4];
+            
+            const currentR = tempData[idx];
+            const currentG = tempData[idx + 1];
+            const currentB = tempData[idx + 2];
+            
+            // 根据强度混合原始值和中值
+            const mixFactor = applyMedian ? (strength / 100) : 0.5 * (strength / 100);
+            
+            data[idx] = Math.min(255, Math.max(0, currentR * (1 - mixFactor) + medianR * mixFactor));
+            data[idx + 1] = Math.min(255, Math.max(0, currentG * (1 - mixFactor) + medianG * mixFactor));
+            data[idx + 2] = Math.min(255, Math.max(0, currentB * (1 - mixFactor) + medianB * mixFactor));
+        }
+    }
+}
+
+/**
+ * 应用高斯滤波降噪算法（更平滑的降噪效果）
+ * @param {Uint8ClampedArray} data - RGBA图像数据
+ * @param {Uint8ClampedArray} tempData - 临时数组存储处理前的像素值
+ * @param {number} width - 图像宽度
+ * @param {number} height - 图像高度
+ * @param {number} strength - 降噪强度
+ */
+function applyGaussianFilter(data, tempData, width, height, strength) {
+    // 简单的5x5高斯核近似（中间权重更高）
+    const kernel = [
+        [1, 2, 1],
+        [2, 4, 2],
+        [1, 2, 1]
+    ];
+    const kernelSum = 16; // 核的总和，用于归一化
+    
+    for (let y = 1; y < height - 1; y++) {
+        for (let x = 1; x < width - 1; x++) {
+            const idx = (y * width + x) * 4;
+            
+            // 使用高斯核计算加权平均值
+            let weightedR = 0, weightedG = 0, weightedB = 0;
+            for (let ky = -1; ky <= 1; ky++) {
+                for (let kx = -1; kx <= 1; kx++) {
+                    const neighborIdx = ((y + ky) * width + (x + kx)) * 4;
+                    const kernelWeight = kernel[ky + 1][kx + 1];
+                    
+                    weightedR += tempData[neighborIdx] * kernelWeight;
+                    weightedG += tempData[neighborIdx + 1] * kernelWeight;
+                    weightedB += tempData[neighborIdx + 2] * kernelWeight;
+                }
+            }
+            
+            // 归一化
+            const gaussianR = weightedR / kernelSum;
+            const gaussianG = weightedG / kernelSum;
+            const gaussianB = weightedB / kernelSum;
+            
+            const currentR = tempData[idx];
+            const currentG = tempData[idx + 1];
+            const currentB = tempData[idx + 2];
+            
+            // 根据强度混合原始值和高斯滤波值
+            const mixFactor = strength / 100;
+            
+            data[idx] = Math.min(255, Math.max(0, currentR * (1 - mixFactor) + gaussianR * mixFactor));
+            data[idx + 1] = Math.min(255, Math.max(0, currentG * (1 - mixFactor) + gaussianG * mixFactor));
+            data[idx + 2] = Math.min(255, Math.max(0, currentB * (1 - mixFactor) + gaussianB * mixFactor));
+        }
+    }
+}
+
+/**
+ * 增强版降噪功能
+ * @param {Uint8ClampedArray} data - RGBA图像数据
+ * @param {number} width - 图像宽度
+ * @param {number} height - 图像高度
+ * @param {number} strength - 降噪强度 (0-100)
+ * @param {string} type - 降噪类型 ('mean', 'median', 'gaussian')
+ * @param {number} detailPreservation - 细节保留程度 (0-100)
+ */
+export function applyNoiseReduction(data, width, height, strength, type = 'mean', detailPreservation = 50) {
+    if (strength <= 0) return;
+    
+    // 创建临时数组以存储处理前的像素值
+    const tempData = new Uint8ClampedArray(data);
+    
+    // 根据选择的降噪类型应用不同的算法
+    switch (type) {
+        case 'median':
+            applyMedianFilter(data, tempData, width, height, strength);
+            break;
+        case 'gaussian':
+            applyGaussianFilter(data, tempData, width, height, strength);
+            break;
+        case 'mean':
+        default:
+            applyMeanFilter(data, tempData, width, height, strength, detailPreservation);
+            break;
+    }
+}
+
+/**
+ * 降噪预设函数 - 针对不同场景优化的降噪设置
+ * @param {string} preset - 预设名称 ('low', 'medium', 'high', 'luminance', 'color')
+ * @returns {Object} 包含strength, type和detailPreservation的对象
+ */
+export function getNoiseReductionPreset(preset) {
+    const presets = {
+        low: { strength: 20, type: 'mean', detailPreservation: 70 },
+        medium: { strength: 40, type: 'mean', detailPreservation: 50 },
+        high: { strength: 60, type: 'median', detailPreservation: 30 },
+        luminance: { strength: 30, type: 'gaussian', detailPreservation: 60 },
+        color: { strength: 35, type: 'mean', detailPreservation: 65 }
+    };
+    
+    return presets[preset] || presets.medium;
 }

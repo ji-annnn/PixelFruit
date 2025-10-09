@@ -149,8 +149,33 @@
                     <div class="slider-group">
                         <label for="noise-reduction">减少杂色</label>
                         <div class="slider-wrapper">
-                            <input type="range" id="noise-reduction" min="0" max="4" step="1" value="0">
+                            <input type="range" id="noise-reduction" min="0" max="100" step="1" value="0">
                             <span class="value-display" id="noise-reduction-value">0</span>
+                        </div>
+                    </div>
+                    <div class="slider-group">
+                        <label for="noise-reduction-type">降噪算法</label>
+                        <select id="noise-reduction-type" class="control-select">
+                            <option value="mean">均值滤波 (标准)</option>
+                            <option value="median">中值滤波 (椒盐噪点)</option>
+                            <option value="gaussian">高斯滤波 (平滑)</option>
+                        </select>
+                    </div>
+                    <div class="slider-group">
+                        <label for="detail-preservation">细节保留</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="detail-preservation" min="0" max="100" step="1" value="50">
+                            <span class="value-display" id="detail-preservation-value">50</span>
+                        </div>
+                    </div>
+                    <div class="slider-group">
+                        <label>降噪预设</label>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" data-preset="low">低降噪</button>
+                            <button class="preset-btn" data-preset="medium">中降噪</button>
+                            <button class="preset-btn" data-preset="high">高降噪</button>
+                            <button class="preset-btn" data-preset="luminance">亮度降噪</button>
+                            <button class="preset-btn" data-preset="color">色彩降噪</button>
                         </div>
                     </div>
                     <div class="slider-group">
@@ -209,7 +234,7 @@
     <script type="module">
         import LibRaw from './index.js';
         import { initColorModule, applyColorAdjustments, updateWhiteBalanceCoefficients, applyContrast, registerColorEventListeners } from './Files/color.js';
-        import { applyUnsharpMask, applySharpness, applyNoiseReduction } from './Files/Details.js';
+        import { applyUnsharpMask, applySharpness, applyNoiseReduction, getNoiseReductionPreset } from './Files/Details.js';
         
         // 获取DOM元素
         const rawFileInput = document.getElementById('raw-file');
@@ -249,6 +274,9 @@
         const horizontalTiltSlider = document.getElementById('horizontal-tilt');
         const rotateSlider = document.getElementById('rotate');
         const scaleSlider = document.getElementById('scale');
+        const noiseReductionTypeSelect = document.getElementById('noise-reduction-type');
+        const detailPreservationSlider = document.getElementById('detail-preservation');
+        const detailPreservationValue = document.getElementById('detail-preservation-value');
         // 曲线编辑器已移除
         const filterSelect = document.getElementById('filter-select');
         const saveFilterButton = document.getElementById('save-filter-button');
@@ -340,6 +368,12 @@
         let currentFileBuffer = null;
         // 缓存处理后的图像数据
         let cachedImageData = null;
+        
+        // 降噪相关的当前设置
+        let currentNoiseReductionSettings = {
+            type: 'mean',
+            detailPreservation: 50
+        };
 
         // 创建 LibRaw 实例
         const libraw = new LibRaw();
@@ -523,7 +557,15 @@
             
             // 先应用降噪
             if (needNoiseReduction) {
-                applyNoiseReduction(data, width, height, noiseReduction);
+                // 使用新的增强版降噪函数，传入更多参数
+                applyNoiseReduction(
+                    data, 
+                    width, 
+                    height, 
+                    noiseReduction, 
+                    currentNoiseReductionSettings.type,
+                    currentNoiseReductionSettings.detailPreservation
+                );
             }
             
             // 然后应用锐化（在所有其他调整之后进行）
@@ -636,6 +678,9 @@
             sharpnessValue.textContent = '0';
             noiseReductionSlider.value = 0;
             noiseReductionValue.textContent = '0';
+            noiseReductionTypeSelect.value = 'mean';
+            detailPreservationSlider.value = 50;
+            detailPreservationValue.textContent = '50';
             textureSlider.value = 0;
             textureValue.textContent = '0';
             contrastSlider.value = 0;
@@ -651,12 +696,21 @@
             rotateSlider.value = 0;
             scaleSlider.value = 100;
             
+            // 重置降噪设置
+            currentNoiseReductionSettings = {
+                type: 'mean',
+                detailPreservation: 50
+            };
+            
             // 重新应用设置
             updateImageWithNewSettings();
         });
         
         // 监听控件变化 - 已通过 registerColorEventListeners 函数处理
         // 监听控件变化 - 已通过 registerColorEventListeners 函数处理
+        
+        // 初始化降噪相关控件的值显示
+        detailPreservationValue.textContent = detailPreservationSlider.value;
         
         brightnessSlider.addEventListener('input', (e) => {
             settings.bright = parseFloat(e.target.value);
@@ -671,6 +725,49 @@
             // 使用防抖处理的图像更新
             debouncedImageUpdate();
         });
+        
+        // 降噪滑块事件监听
+        noiseReductionSlider.addEventListener('input', (e) => {
+            settings.fbdd_noiserd = parseInt(e.target.value);
+            noiseReductionValue.textContent = settings.fbdd_noiserd;
+            debouncedImageUpdate();
+        });
+        
+        // 降噪算法选择事件监听
+        noiseReductionTypeSelect.addEventListener('change', (e) => {
+            currentNoiseReductionSettings.type = e.target.value;
+            debouncedImageUpdate();
+        });
+        
+        // 细节保留滑块事件监听
+        detailPreservationSlider.addEventListener('input', (e) => {
+            currentNoiseReductionSettings.detailPreservation = parseInt(e.target.value);
+            detailPreservationValue.textContent = currentNoiseReductionSettings.detailPreservation;
+            debouncedImageUpdate();
+        });
+        
+        // 降噪预设按钮事件监听
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const presetName = e.target.dataset.preset;
+                const preset = getNoiseReductionPreset(presetName);
+                
+                // 应用预设值
+                noiseReductionSlider.value = preset.strength;
+                noiseReductionValue.textContent = preset.strength;
+                settings.fbdd_noiserd = preset.strength;
+                
+                noiseReductionTypeSelect.value = preset.type;
+                currentNoiseReductionSettings.type = preset.type;
+                
+                detailPreservationSlider.value = preset.detailPreservation;
+                detailPreservationValue.textContent = preset.detailPreservation;
+                currentNoiseReductionSettings.detailPreservation = preset.detailPreservation;
+                
+                debouncedImageUpdate();
+            });
+        });
+        
         brightnessSlider.addEventListener('input', (e) => {
             settings.bright = parseFloat(e.target.value);
             brightnessValue.textContent = settings.bright.toFixed(1);
