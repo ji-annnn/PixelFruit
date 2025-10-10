@@ -36,6 +36,9 @@ export function initColorModule(elements) {
     colorElements.redTintSlider = elements.redTintSlider || document.getElementById('red-tint');
     colorElements.greenTintSlider = elements.greenTintSlider || document.getElementById('green-tint');
     colorElements.blueTintSlider = elements.blueTintSlider || document.getElementById('blue-tint');
+    colorElements.redTintValue = elements.redTintValue || document.getElementById('red-tint-value');
+    colorElements.greenTintValue = elements.greenTintValue || document.getElementById('green-tint-value');
+    colorElements.blueTintValue = elements.blueTintValue || document.getElementById('blue-tint-value');
     colorElements.highlightsSlider = elements.highlightsSlider || document.getElementById('highlights');
     colorElements.shadowsSlider = elements.shadowsSlider || document.getElementById('shadows');
     colorElements.whitesSlider = elements.whitesSlider || document.getElementById('whites');
@@ -320,8 +323,17 @@ export function registerColorEventListeners(settings, debouncedImageUpdate, debo
         debouncedImageUpdate();
     });
     
-    // 颜色滑块事件监听
-    colorElements.redTintSlider.addEventListener('input', debouncedColorUpdate);
-    colorElements.greenTintSlider.addEventListener('input', debouncedColorUpdate);
-    colorElements.blueTintSlider.addEventListener('input', debouncedColorUpdate);
+    // 颜色滑块事件监听 - 修复为立即更新值显示并触发图像更新
+    colorElements.redTintSlider.addEventListener('input', (e) => {
+        colorElements.redTintValue.textContent = e.target.value;
+        debouncedColorUpdate();
+    });
+    colorElements.greenTintSlider.addEventListener('input', (e) => {
+        colorElements.greenTintValue.textContent = e.target.value;
+        debouncedColorUpdate();
+    });
+    colorElements.blueTintSlider.addEventListener('input', (e) => {
+        colorElements.blueTintValue.textContent = e.target.value;
+        debouncedColorUpdate();
+    });
 }

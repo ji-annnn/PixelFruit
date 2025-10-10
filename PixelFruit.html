@@ -113,15 +113,24 @@
                     <div class="color-adjustments">
                         <div class="color-slider">
                             <label for="red-tint">红色色调</label>
-                            <input type="range" id="red-tint" min="-100" max="100" step="1" value="0">
+                            <div class="slider-wrapper">
+                                <input type="range" id="red-tint" min="-100" max="100" step="1" value="0">
+                                <span class="value-display" id="red-tint-value">0</span>
+                            </div>
                         </div>
                         <div class="color-slider">
                             <label for="green-tint">绿色色调</label>
-                            <input type="range" id="green-tint" min="-100" max="100" step="1" value="0">
+                            <div class="slider-wrapper">
+                                <input type="range" id="green-tint" min="-100" max="100" step="1" value="0">
+                                <span class="value-display" id="green-tint-value">0</span>
+                            </div>
                         </div>
                         <div class="color-slider">
                             <label for="blue-tint">蓝色色调</label>
-                            <input type="range" id="blue-tint" min="-100" max="100" step="1" value="0">
+                            <div class="slider-wrapper">
+                                <input type="range" id="blue-tint" min="-100" max="100" step="1" value="0">
+                                <span class="value-display" id="blue-tint-value">0</span>
+                            </div>
                         </div>
                         <div class="color-slider">
                             <label for="highlights">高光</label>
@@ -267,6 +276,9 @@
         const redTintSlider = document.getElementById('red-tint');
         const greenTintSlider = document.getElementById('green-tint');
         const blueTintSlider = document.getElementById('blue-tint');
+        const redTintValue = document.getElementById('red-tint-value');
+        const greenTintValue = document.getElementById('green-tint-value');
+        const blueTintValue = document.getElementById('blue-tint-value');
         const highlightsSlider = document.getElementById('highlights');
         const shadowsSlider = document.getElementById('shadows');
         const whitesSlider = document.getElementById('whites');
@@ -299,6 +311,9 @@
             redTintSlider,
             greenTintSlider,
             blueTintSlider,
+            redTintValue,
+            greenTintValue,
+            blueTintValue,
             highlightsSlider,
             shadowsSlider,
             whitesSlider
@@ -802,10 +817,9 @@
         // 防抖处理颜色调整
         const debouncedColorUpdate = debounceUtil(() => {
             updateWhiteBalanceCoefficients(settings);
-            if (cachedImageData) {
-                debouncedImageUpdate();
-            }
-        }, 300);
+            // 无论是否有缓存数据，都触发图像更新
+            debouncedImageUpdate();
+        }, 150); // 减少延迟到150ms，提高响应速度
         
         // 使用 color.js 中的函数注册所有颜色调整事件监听器
         registerColorEventListeners(settings, debouncedImageUpdate, debouncedColorUpdate);
