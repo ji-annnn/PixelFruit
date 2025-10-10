@@ -177,16 +177,7 @@
                             <span class="value-display" id="detail-preservation-value">50</span>
                         </div>
                     </div>
-                    <div class="slider-group">
-                        <label>降噪预设</label>
-                        <div class="preset-buttons">
-                            <button class="preset-btn" data-preset="low">低降噪</button>
-                            <button class="preset-btn" data-preset="medium">中降噪</button>
-                            <button class="preset-btn" data-preset="high">高降噪</button>
-                            <button class="preset-btn" data-preset="luminance">亮度降噪</button>
-                            <button class="preset-btn" data-preset="color">色彩降噪</button>
-                        </div>
-                    </div>
+
                     <div class="slider-group">
                         <label for="texture">纹理/清晰度</label>
                         <div class="slider-wrapper">
@@ -243,7 +234,7 @@
     <script type="module">
         import LibRaw from './index.js';
         import { initColorModule, applyColorAdjustments, updateWhiteBalanceCoefficients, applyContrast, registerColorEventListeners } from './Files/color.js';
-        import { applyUnsharpMask, applySharpness, applyNoiseReduction, getNoiseReductionPreset } from './Files/Details.js';
+        import { applyUnsharpMask, applySharpness, applyNoiseReduction } from './Files/Details.js';
         
         // 获取DOM元素
         const rawFileInput = document.getElementById('raw-file');
@@ -761,27 +752,7 @@
             debouncedImageUpdate();
         });
         
-        // 降噪预设按钮事件监听
-        document.querySelectorAll('.preset-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const presetName = e.target.dataset.preset;
-                const preset = getNoiseReductionPreset(presetName);
-                
-                // 应用预设值
-                noiseReductionSlider.value = preset.strength;
-                noiseReductionValue.textContent = preset.strength;
-                settings.fbdd_noiserd = preset.strength;
-                
-                noiseReductionTypeSelect.value = preset.type;
-                currentNoiseReductionSettings.type = preset.type;
-                
-                detailPreservationSlider.value = preset.detailPreservation;
-                detailPreservationValue.textContent = preset.detailPreservation;
-                currentNoiseReductionSettings.detailPreservation = preset.detailPreservation;
-                
-                debouncedImageUpdate();
-            });
-        });
+
         
         brightnessSlider.addEventListener('input', (e) => {
             settings.bright = parseFloat(e.target.value);
@@ -828,6 +799,20 @@
         noiseReductionSlider.addEventListener('input', (e) => {
             settings.fbdd_noiserd = parseInt(e.target.value);
             noiseReductionValue.textContent = settings.fbdd_noiserd;
+            // 使用防抖处理的图像更新
+            debouncedImageUpdate();
+        });
+        
+        // 添加锐化滑块的事件监听器
+        sharpnessSlider.addEventListener('input', (e) => {
+            sharpnessValue.textContent = e.target.value;
+            // 使用防抖处理的图像更新
+            debouncedImageUpdate();
+        });
+        
+        // 添加纹理滑块的事件监听器
+        textureSlider.addEventListener('input', (e) => {
+            textureValue.textContent = e.target.value;
             // 使用防抖处理的图像更新
             debouncedImageUpdate();
         });
