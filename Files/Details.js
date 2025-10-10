@@ -255,20 +255,3 @@ export function applyNoiseReduction(data, width, height, strength, type = 'mean'
             break;
     }
 }
-
-/**
- * 降噪预设函数 - 针对不同场景优化的降噪设置
- * @param {string} preset - 预设名称 ('low', 'medium', 'high', 'luminance', 'color')
- * @returns {Object} 包含strength, type和detailPreservation的对象
- */
-export function getNoiseReductionPreset(preset) {
-    const presets = {
-        low: { strength: 20, type: 'mean', detailPreservation: 70 },
-        medium: { strength: 40, type: 'mean', detailPreservation: 50 },
-        high: { strength: 60, type: 'median', detailPreservation: 30 },
-        luminance: { strength: 30, type: 'gaussian', detailPreservation: 60 },
-        color: { strength: 35, type: 'mean', detailPreservation: 65 }
-    };
-    
-    return presets[preset] || presets.medium;
-}

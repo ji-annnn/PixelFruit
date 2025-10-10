@@ -280,7 +280,6 @@
         const noiseReductionTypeSelect = document.getElementById('noise-reduction-type');
         const detailPreservationSlider = document.getElementById('detail-preservation');
         const detailPreservationValue = document.getElementById('detail-preservation-value');
-        // 曲线编辑器已移除
         const filterSelect = document.getElementById('filter-select');
         const saveFilterButton = document.getElementById('save-filter-button');
         
@@ -397,6 +396,8 @@
         const debouncedImageUpdate = debounceUtil(async () => {
             if (cachedImageData) {
                 await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+                // 图像更新完成后同步更新直方图
+                updateHistogram();
             }
         }, 66); // 约15fps的刷新率，平衡响应速度和性能
         

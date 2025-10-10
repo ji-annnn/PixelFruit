@@ -87,9 +87,7 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
     }
 }
 
-/**
- * 曲线编辑器功能已移除
- */
+
 
 /**
  * 导出图像为指定格式
