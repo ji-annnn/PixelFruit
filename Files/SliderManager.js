@@ -66,47 +66,6 @@ export function addSliderEventListener(sliderElement, callback, eventType = 'inp
 }
 
 /**
- * 移除滑块事件监听器
- * @param {HTMLElement|string} slider - 滑块DOM元素或滑块ID
- * @param {string} eventType - 事件类型，默认为'input'
- * @returns {boolean} 是否成功移除监听器
- */
-export function removeSliderEventListener(slider, eventType = 'input') {
-    let sliderId;
-    let sliderElement;
-
-    if (typeof slider === 'string') {
-        sliderId = slider;
-        sliderElement = document.getElementById(sliderId);
-    } else if (slider instanceof HTMLElement) {
-        sliderId = slider.id;
-        sliderElement = slider;
-    } else {
-        console.warn('Invalid slider parameter');
-        return false;
-    }
-
-    if (!sliderId || !registeredSliders.has(sliderId) || !registeredSliders.get(sliderId).has(eventType)) {
-        console.warn(`No event listener registered for slider '${sliderId}' and type '${eventType}'`);
-        return false;
-    }
-
-    // 获取注册的监听器信息
-    const listenerInfo = registeredSliders.get(sliderId).get(eventType);
-
-    // 移除事件监听器
-    sliderElement.removeEventListener(eventType, listenerInfo.debouncedCallback);
-
-    // 从注册列表中移除
-    registeredSliders.get(sliderId).delete(eventType);
-    if (registeredSliders.get(sliderId).size === 0) {
-        registeredSliders.delete(sliderId);
-    }
-
-    return true;
-}
-
-/**
  * 批量添加滑块事件监听器
  * @param {Array<{element: HTMLElement, callback: Function, eventType?: string, debounceDelay?: number}>} slidersConfig - 滑块配置数组
  * @returns {Array<boolean>} 每个滑块添加结果的数组
@@ -128,46 +87,4 @@ export function addSliderEventListenersBatch(slidersConfig) {
             config.debounceDelay || DEFAULT_DEBOUNCE_DELAY
         );
     });
-}
-
-/**
- * 清除所有滑块事件监听器
- */
-export function clearAllSliderEventListeners() {
-    registeredSliders.forEach((eventListeners, sliderId) => {
-        const sliderElement = document.getElementById(sliderId);
-        if (sliderElement) {
-            eventListeners.forEach((listenerInfo, eventType) => {
-                sliderElement.removeEventListener(eventType, listenerInfo.debouncedCallback);
-            });
-        }
-    });
-    registeredSliders.clear();
-}
-
-/**
- * 获取已注册滑块的数量
- * @returns {number} 已注册滑块的数量
- */
-export function getRegisteredSlidersCount() {
-    return registeredSliders.size;
-}
-
-/**
- * 检查滑块是否已注册事件监听器
- * @param {HTMLElement|string} slider - 滑块DOM元素或滑块ID
- * @param {string} eventType - 事件类型，默认为'input'
- * @returns {boolean} 是否已注册
- */
-export function isSliderEventListenerRegistered(slider, eventType = 'input') {
-    let sliderId;
-    if (typeof slider === 'string') {
-        sliderId = slider;
-    } else if (slider instanceof HTMLElement) {
-        sliderId = slider.id;
-    } else {
-        return false;
-    }
-
-    return registeredSliders.has(sliderId) && registeredSliders.get(sliderId).has(eventType);
 }

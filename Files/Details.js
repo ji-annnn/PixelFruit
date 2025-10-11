@@ -19,9 +19,23 @@ export function applyUnsharpMask(rgbaData, width, height, sharpness, texture) {
     
     const strength = (sharpness + texture) / 100;
     
+    // 检查是否正在拖动滑块（优化性能）
+    // 使用try-catch以防window.isSliderDragging不存在
+    let isDragging = false;
+    try {
+        if (typeof window.isSliderDragging === 'function') {
+            isDragging = window.isSliderDragging();
+        }
+    } catch (e) {
+        console.warn('无法检测滑块拖动状态:', e);
+    }
+    
+    // 优化：拖动时使用步进处理减少计算量
+    const step = isDragging ? 2 : 1;
+    
     // 对每个像素应用非锐化蒙版（跳过边缘像素）
-    for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
+    for (let y = 1; y < height - 1; y += step) {
+        for (let x = 1; x < width - 1; x += step) {
             const idx = (y * width + x) * 4;
             
             // 计算周围像素的平均值
@@ -48,6 +62,24 @@ export function applyUnsharpMask(rgbaData, width, height, sharpness, texture) {
             rgbaData[idx] = Math.min(255, Math.max(0, currentR + (currentR - avgR) * strength));
             rgbaData[idx + 1] = Math.min(255, Math.max(0, currentG + (currentG - avgG) * strength));
             rgbaData[idx + 2] = Math.min(255, Math.max(0, currentB + (currentB - avgB) * strength));
+            
+            // 如果是步进处理，同时更新相邻像素
+            if (step > 1 && y + 1 < height - 1 && x + 1 < width - 1) {
+                // 复制计算结果到右侧像素
+                rgbaData[(y * width + x + 1) * 4] = rgbaData[idx];
+                rgbaData[(y * width + x + 1) * 4 + 1] = rgbaData[idx + 1];
+                rgbaData[(y * width + x + 1) * 4 + 2] = rgbaData[idx + 2];
+                
+                // 复制计算结果到下方像素
+                rgbaData[((y + 1) * width + x) * 4] = rgbaData[idx];
+                rgbaData[((y + 1) * width + x) * 4 + 1] = rgbaData[idx + 1];
+                rgbaData[((y + 1) * width + x) * 4 + 2] = rgbaData[idx + 2];
+                
+                // 复制计算结果到右下角像素
+                rgbaData[((y + 1) * width + x + 1) * 4] = rgbaData[idx];
+                rgbaData[((y + 1) * width + x + 1) * 4 + 1] = rgbaData[idx + 1];
+                rgbaData[((y + 1) * width + x + 1) * 4 + 2] = rgbaData[idx + 2];
+            }
         }
     }
 }

@@ -16,9 +16,86 @@ export let colorElements = {
     greenTintSlider: null,
     blueTintSlider: null,
     highlightsSlider: null,
+    highlightsValue: null,
     shadowsSlider: null,
-    whitesSlider: null
+    shadowsValue: null,
+    whitesSlider: null,
+    redTintValue: null,
+    greenTintValue: null,
+    blueTintValue: null
 };
+
+// 滤镜预设配置
+export const filterPresets = {
+    // 用户定制的滤镜预设
+    customFilter1: {
+        name: "自定义滤镜1",
+        params: {
+            bright: 1.0,          // 亮度
+            exp_shift: 0.3,       // 曝光补偿
+            user_sat: 82,         // 饱和度
+            // RGB色调调整将通过updateWhiteBalanceCoefficients应用
+            redTint: -4,          // 红色调整
+            greenTint: -6,        // 绿色调整
+            blueTint: 8           // 蓝色调整
+        }
+    }
+};
+
+// 应用滤镜预设
+export function applyFilterPreset(presetName, settings, debouncedImageUpdate, debouncedColorUpdate) {
+    const preset = filterPresets[presetName];
+    if (!preset) {
+        console.error(`未找到预设滤镜: ${presetName}`);
+        return false;
+    }
+
+    const { params } = preset;
+
+    // 应用亮度
+    if (params.bright !== undefined && colorElements.brightnessSlider) {
+        settings.bright = params.bright;
+        colorElements.brightnessSlider.value = params.bright;
+        colorElements.brightnessValue.textContent = params.bright.toFixed(1);
+    }
+
+    // 应用曝光补偿
+    if (params.exp_shift !== undefined && colorElements.exposureSlider) {
+        settings.exp_shift = params.exp_shift;
+        colorElements.exposureSlider.value = params.exp_shift;
+        colorElements.exposureValue.textContent = params.exp_shift.toFixed(1);
+    }
+
+    // 应用饱和度
+    if (params.user_sat !== undefined && colorElements.saturationSlider) {
+        settings.user_sat = params.user_sat;
+        colorElements.saturationSlider.value = params.user_sat;
+        colorElements.saturationValue.textContent = params.user_sat;
+    }
+
+    // 应用RGB色调调整
+    if (params.redTint !== undefined && colorElements.redTintSlider) {
+        colorElements.redTintSlider.value = params.redTint;
+        colorElements.redTintValue.textContent = params.redTint;
+    }
+    if (params.greenTint !== undefined && colorElements.greenTintSlider) {
+        colorElements.greenTintSlider.value = params.greenTint;
+        colorElements.greenTintValue.textContent = params.greenTint;
+    }
+    if (params.blueTint !== undefined && colorElements.blueTintSlider) {
+        colorElements.blueTintSlider.value = params.blueTint;
+        colorElements.blueTintValue.textContent = params.blueTint;
+    }
+
+    // 触发颜色平衡系数更新
+    updateWhiteBalanceCoefficients(settings);
+    
+    // 触发图像更新
+    debouncedImageUpdate();
+    debouncedColorUpdate();
+    
+    return true;
+}
 
 // 初始化颜色调整模块
 export function initColorModule(elements) {
@@ -40,24 +117,29 @@ export function initColorModule(elements) {
     colorElements.greenTintValue = elements.greenTintValue || document.getElementById('green-tint-value');
     colorElements.blueTintValue = elements.blueTintValue || document.getElementById('blue-tint-value');
     colorElements.highlightsSlider = elements.highlightsSlider || document.getElementById('highlights');
+    colorElements.highlightsValue = elements.highlightsValue || document.getElementById('highlights-value');
     colorElements.shadowsSlider = elements.shadowsSlider || document.getElementById('shadows');
+    colorElements.shadowsValue = elements.shadowsValue || document.getElementById('shadows-value');
     colorElements.whitesSlider = elements.whitesSlider || document.getElementById('whites');
 }
 
 // 应用颜色调整到缓存数据
 export function applyColorAdjustments(data, width, height, settings) {
-    // 获取当前设置
+    // 获取当前设置 - 优先使用settings对象中的值，然后再回退到DOM滑块获取
     const brightness = settings.bright || 1.0;
-    const contrast = parseInt(colorElements.contrastSlider.value);
-    const saturation = parseInt(colorElements.saturationSlider.value);
+    // 优先使用settings.contrast，如果不存在则从滑块获取
+    const contrast = settings.contrast !== undefined ? settings.contrast : parseInt(colorElements.contrastSlider.value);
+    // 优先使用settings.user_sat，如果不存在则从滑块获取
+    const saturation = settings.user_sat !== undefined ? settings.user_sat : parseInt(colorElements.saturationSlider.value);
     const exposure = settings.exp_shift || 0.0;
     const shadows = settings.shadows !== undefined ? settings.shadows : parseInt(colorElements.shadowsSlider.value);
     
     // 安全获取温度和色调滑块
     const tempSlider = document.getElementById('temperature') || document.getElementById('tempSlider');
     const tintSlider = document.getElementById('tint') || document.getElementById('tintSlider');
-    const temperature = tempSlider ? parseInt(tempSlider.value) : 0;
-    const tint = tintSlider ? parseInt(tintSlider.value) : 0;
+    // 优先使用settings.temperature和settings.tint，如果不存在则从滑块获取
+    const temperature = settings.temperature !== undefined ? settings.temperature : (tempSlider ? parseInt(tempSlider.value) : 0);
+    const tint = settings.tint !== undefined ? settings.tint : (tintSlider ? parseInt(tintSlider.value) : 0);
     
     // 检查并应用用户自定义的白平衡系数（红、绿、蓝色调调整）
     const useUserMul = settings.user_mul && settings.user_mul.length === 4;
@@ -308,12 +390,14 @@ export function registerColorEventListeners(settings, debouncedImageUpdate, debo
     // 为阴影滑块添加事件监听器
     colorElements.shadowsSlider.addEventListener('input', function() {
         settings.shadows = parseInt(this.value);
+        colorElements.shadowsValue.textContent = this.value;
         debouncedImageUpdate();
     });
     
     // 为高光滑块添加事件监听器
     colorElements.highlightsSlider.addEventListener('input', function() {
         settings.highlights = parseInt(this.value);
+        colorElements.highlightsValue.textContent = this.value;
         debouncedImageUpdate();
     });
     

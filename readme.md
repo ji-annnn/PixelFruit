@@ -34,6 +34,35 @@
 - 允许对本网页进行二次魔改和优化
 - 欢迎提交 PR 参与项目改进
 
+## 项目结构与文件说明
+
+### 主入口文件
+- **index.js** - 应用程序主入口，负责初始化和协调各个模块
+- **PixelFruit.html** - 应用的HTML入口文件，包含页面结构
+- **css/index.css** - 应用的样式文件，定义UI外观
+
+### 图像处理核心
+- **libraw.js/libraw.wasm** - 核心RAW图像处理库，提供RAW格式解析功能
+- **libraw_wrapper.cpp** - 用于编译libraw到WebAssembly的C++包装代码
+- **worker.js** - 原始Web Worker实现，处理一些计算任务
+- **works.js** - 优化后的Web Worker，处理颜色调整、降噪等计算密集型任务
+
+### Files目录模块
+- **Basic.js** - 基础工具函数，提供通用功能支持
+- **color.js** - 颜色调整模块，包含亮度、对比度、饱和度等调整功能
+- **Details.js** - 图像处理细节模块，实现锐化、降噪等高级效果
+- **HistogramManager.js** - 直方图管理模块，负责计算和绘制图像直方图
+- **ImageProcessor.js** - Web Worker包装器，管理任务队列、缓存和Worker通信
+- **PerformanceOptimizer.js** - 性能优化模块，整合缓存、Canvas优化和渐进式渲染
+- **SliderManager.js** - 滑块控件管理模块，处理UI交互
+- **Correction.js** - 图像校正模块，提供几何校正等功能
+
+### 其他文件
+- **compileLibraw.sh** - 编译libraw库的shell脚本
+- **makefile** - 项目构建配置文件
+- **libs/** - 包含编译好的库文件
+- **includes/** - 包含项目依赖的头文件
+
 ## 许可协议
 
 ⚠️ 本项目禁止用于任何商业用途，仅供个人学习和非商业使用。

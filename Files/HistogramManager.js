@@ -226,32 +226,10 @@ export function createDebouncedHistogramUpdate(updateFunction, delay = 100) {
     return debounce(updateFunction, delay);
 }
 
-/**
- * 清除直方图缓存
- */
-export function clearHistogramCache() {
-    cachedHistogramData = null;
-    lastImageDataHash = null;
-}
-
-/**
- * 获取直方图性能统计信息
- * @returns {Object} 性能统计数据
- */
-export function getHistogramPerformanceStats() {
-    return { ...performanceStats };
-}
-
-/**
- * 初始化直方图管理器
- */
-export function initHistogramManager() {
-    clearHistogramCache();
-    // 重置性能统计
-    performanceStats.calculateTime = 0;
-    performanceStats.drawTime = 0;
-    performanceStats.calls = 0;
-}
+// 性能统计变量用于内部使用
+performanceStats.calculateTime = 0;
+performanceStats.drawTime = 0;
+performanceStats.calls = 0;
 
 /**
  * 优化的直方图更新函数

@@ -134,11 +134,17 @@
                         </div>
                         <div class="color-slider">
                             <label for="highlights">高光</label>
-                            <input type="range" id="highlights" min="-50" max="50" step="1" value="0">
+                            <div class="slider-wrapper">
+                                <input type="range" id="highlights" min="-50" max="50" step="1" value="0">
+                                <span class="value-display" id="highlights-value">0</span>
+                            </div>
                         </div>
                         <div class="color-slider">
                             <label for="shadows">阴影</label>
-                            <input type="range" id="shadows" min="-50" max="50" step="1" value="0">
+                            <div class="slider-wrapper">
+                                <input type="range" id="shadows" min="-50" max="50" step="1" value="0">
+                                <span class="value-display" id="shadows-value">0</span>
+                            </div>
                         </div>
                         <div class="color-slider">
                             <label for="whites">白色</label>
@@ -243,7 +249,8 @@
         const fileName = document.getElementById('file-name');
         const metadataOutput = document.getElementById('metadata-output');
         const canvas = document.getElementById('image-canvas');
-        const ctx = canvas.getContext('2d');
+        // 明确指定使用sRGB颜色空间，确保渲染和导出时颜色处理一致
+        const ctx = canvas.getContext('2d', { colorSpace: 'srgb' });
         const statusMessage = document.getElementById('status-message');
         const resetButton = document.getElementById('reset-button');
         const exportPngButton = document.getElementById('export-png-button');
@@ -273,7 +280,9 @@
         const greenTintValue = document.getElementById('green-tint-value');
         const blueTintValue = document.getElementById('blue-tint-value');
         const highlightsSlider = document.getElementById('highlights');
+        const highlightsValue = document.getElementById('highlights-value');
         const shadowsSlider = document.getElementById('shadows');
+        const shadowsValue = document.getElementById('shadows-value');
         const whitesSlider = document.getElementById('whites');
         const verticalTiltSlider = document.getElementById('vertical-tilt');
         const horizontalTiltSlider = document.getElementById('horizontal-tilt');
@@ -307,7 +316,9 @@
             greenTintValue,
             blueTintValue,
             highlightsSlider,
+            highlightsValue,
             shadowsSlider,
+            shadowsValue,
             whitesSlider
         };
         
@@ -332,7 +343,16 @@
         };
         
         // 存储滤镜预设
-        let filterPresets = {    
+        let filterPresets = {
+            '万能公式': {
+                bright: 1.1,
+                exp_shift: 0.2,
+                user_sat: 130,
+                highlights: -10,
+                shadows: 5,
+                green_tint: 5,
+                blue_tint: 5
+            },    
             '富士色彩': {
                 bright: 1.05,
                 exp_shift: 0.0,
@@ -343,6 +363,17 @@
                 blue_tint: 10,
                 red_tint: -5
             },
+            '复古钟楼': {
+                bright: 1.08,
+                exp_shift: 0.1,
+                user_sat: 115,
+                highlights: -15,
+                shadows: 10,
+                contrast: 12,
+                blue_tint: 8,
+                green_tint: 3,
+                red_tint: -2
+            },
             '复古胶片': {
                 bright: 0.9,
                 exp_shift: 0.0,
@@ -352,15 +383,6 @@
                 red_tint: 5,
                 green_tint: -3,
                 blue_tint: -10
-            },
-            '风景模式': {
-                bright: 1.1,
-                exp_shift: 0.2,
-                user_sat: 130,
-                highlights: -10,
-                shadows: 5,
-                green_tint: 5,
-                blue_tint: 5
             },
             '黑白模式': {
                 bright: 1.0,
@@ -403,7 +425,35 @@
                 // 图像更新完成后同步更新直方图
                 updateHistogram();
             }
-        }, 66); // 约15fps的刷新率，平衡响应速度和性能
+        }, 100); // 优化：增加延迟到100ms，减少触发频率，提高性能
+        
+        // 用于检测滑块是否正在拖动的标志
+        let isSliderDragging = false;
+        
+        // 监听锐化滑块的mousedown和mouseup事件
+        sharpnessSlider.addEventListener('mousedown', () => {
+            isSliderDragging = true;
+        });
+        
+        sharpnessSlider.addEventListener('mouseup', () => {
+            isSliderDragging = false;
+            // 拖动结束后立即应用一次完整处理
+            debouncedImageUpdate();
+        });
+        
+        // 同样监听触摸事件（移动设备）
+        sharpnessSlider.addEventListener('touchstart', () => {
+            isSliderDragging = true;
+        });
+        
+        sharpnessSlider.addEventListener('touchend', () => {
+            isSliderDragging = false;
+            // 拖动结束后立即应用一次完整处理
+            debouncedImageUpdate();
+        });
+        
+        // 暴露isSliderDragging标志供Details.js使用
+        window.isSliderDragging = () => isSliderDragging;
         
         // 初始化校正模块
         correctionModule.init(debouncedImageUpdate);
@@ -454,16 +504,21 @@
             
             // 高光
             highlightsSlider.value = 0;
+            highlightsValue.textContent = '0';
             settings.highlights = 0;
             
             // 阴影
             shadowsSlider.value = 0;
+            shadowsValue.textContent = '0';
             settings.shadows = 0;
             
             // 颜色色调
             redTintSlider.value = 0;
+            redTintValue.textContent = '0';
             greenTintSlider.value = 0;
+            greenTintValue.textContent = '0';
             blueTintSlider.value = 0;
+            blueTintValue.textContent = '0';
             
             // 应用预设值到设置对象
             for (const key in preset) {
@@ -489,20 +544,25 @@
                         break;
                     case 'highlights':
                         highlightsSlider.value = preset[key];
+                        highlightsValue.textContent = preset[key];
                         settings[key] = preset[key];
                         break;
                     case 'shadows':
                         shadowsSlider.value = preset[key];
+                        shadowsValue.textContent = preset[key];
                         settings[key] = preset[key];
                         break;
                     case 'red_tint':
                         redTintSlider.value = preset[key];
+                        redTintValue.textContent = preset[key];
                         break;
                     case 'green_tint':
                         greenTintSlider.value = preset[key];
+                        greenTintValue.textContent = preset[key];
                         break;
                     case 'blue_tint':
                         blueTintSlider.value = preset[key];
+                        blueTintValue.textContent = preset[key];
                         break;
                     // 添加其他需要的参数处理
                 }
@@ -1053,7 +1113,8 @@
             // 创建或获取模态框
             const modal = createFullscreenModal();
             const fullscreenCanvas = document.getElementById('fullscreen-canvas');
-            const fullscreenCtx = fullscreenCanvas.getContext('2d');
+            // 明确指定使用sRGB颜色空间，与主canvas保持一致
+            const fullscreenCtx = fullscreenCanvas.getContext('2d', { colorSpace: 'srgb' });
             
             // 设置全屏canvas尺寸为原始图像尺寸
             fullscreenCanvas.width = cachedImageData.width;
@@ -1103,6 +1164,12 @@
                 // 使用当前文件名（如果有）或默认名称
                 const baseFilename = currentSelectedFile ? currentSelectedFile.name.replace(/\.[^/.]+$/, '') : 'exported-image';
                 
+                statusMessage.textContent = '正在应用所有颜色调整...';
+                // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
+                updateWhiteBalanceCoefficients(settings);
+                // 更新图像以确保所有调整都反映在canvas上
+                await updateImageFromCache();
+                
                 statusMessage.textContent = '正在导出 PNG 图像...';
                 await exportImage(canvas, 'png', 1.0, baseFilename);
                 statusMessage.textContent = 'PNG 图像导出成功';
@@ -1122,6 +1189,12 @@
             try {
                 // 使用当前文件名（如果有）或默认名称
                 const baseFilename = currentSelectedFile ? currentSelectedFile.name.replace(/\.[^/.]+$/, '') : 'exported-image';
+                
+                statusMessage.textContent = '正在应用所有颜色调整...';
+                // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
+                updateWhiteBalanceCoefficients(settings);
+                // 更新图像以确保所有调整都反映在canvas上
+                await updateImageFromCache();
                 
                 statusMessage.textContent = '正在导出 JPEG 图像...';
                 await exportImage(canvas, 'jpeg', 0.9, baseFilename);
