@@ -579,7 +579,87 @@
             }
         }
         
-        // 应用滤镜预设
+        // 完全重置所有参数到默认值
+        function resetAllParametersToDefault() {
+            // 重置基础设置
+            brightnessSlider.value = 1.0;
+            brightnessValue.textContent = '1.0';
+            settings.bright = 1.0;
+            
+            exposureSlider.value = 0;
+            exposureValue.textContent = '0.0';
+            settings.exp_shift = 0;
+            
+            saturationSlider.value = 100;
+            saturationValue.textContent = '100';
+            settings.user_sat = 100;
+            
+            contrastSlider.value = 0;
+            contrastValue.textContent = '0';
+            settings.contrast = 0;
+            
+            // 重置颜色调整
+            highlightsSlider.value = 0;
+            highlightsValue.textContent = '0';
+            settings.highlights = 0;
+            
+            shadowsSlider.value = 0;
+            shadowsValue.textContent = '0';
+            settings.shadows = 0;
+            
+            redTintSlider.value = 0;
+            redTintValue.textContent = '0';
+            settings.redTint = 0;
+            
+            greenTintSlider.value = 0;
+            greenTintValue.textContent = '0';
+            settings.greenTint = 0;
+            
+            blueTintSlider.value = 0;
+            blueTintValue.textContent = '0';
+            settings.blueTint = 0;
+            
+            whitesSlider.value = 100;
+            settings.whites = 100;
+            
+            // 重置白平衡设置
+            settings.user_mul = [1.0, 1.0, 1.0, 1.0];
+            
+            // 重置细节处理
+            sharpnessSlider.value = 0;
+            sharpnessValue.textContent = '0';
+            settings.sharpness = 0;
+            
+            noiseReductionSlider.value = 0;
+            noiseReductionValue.textContent = '0';
+            settings.fbdd_noiserd = 0;
+            
+            textureSlider.value = 0;
+            textureValue.textContent = '0';
+            
+            // 重置透视校正
+            verticalTiltSlider.value = 0;
+            horizontalTiltSlider.value = 0;
+            rotateSlider.value = 0;
+            scaleSlider.value = 100;
+            
+            // 重置白平衡复选框
+            useAutoWbCheckbox.checked = true;
+            useCameraWbCheckbox.checked = false;
+            settings.use_auto_wb = 1;
+            settings.use_camera_wb = 0;
+            
+            // 重置降噪设置
+            currentNoiseReductionSettings = {
+                type: 'mean',
+                detailPreservation: 50
+            };
+            detailPreservationSlider.value = 50;
+            detailPreservationValue.textContent = '50';
+            noiseReductionTypeSelect.value = 'mean';
+        }
+
+        // 应用滤镜预设（改进版：先重置再应用）
         function applyFilterPreset(presetName) {
             if (presetName === 'none' || !filterPresets[presetName]) {
                 return;
@@ -587,45 +667,10 @@
             
             const preset = filterPresets[presetName];
             
-            // 首先将所有参数重置为默认值，确保滤镜切换时不会残留之前的设置
-            // 亮度
-            brightnessSlider.value = 1.0;
-            brightnessValue.textContent = '1.0';
-            settings.bright = 1.0;
+            // 第一步：完全重置所有参数到默认值
+            resetAllParametersToDefault();
             
-            // 曝光补偿
-            exposureSlider.value = 0;
-            exposureValue.textContent = '0.0';
-            settings.exp_shift = 0;
-            
-            // 饱和度
-            saturationSlider.value = 100;
-            saturationValue.textContent = '100';
-            settings.user_sat = 100;
-            
-            // 对比度
-            contrastSlider.value = 0;
-            contrastValue.textContent = '0';
-            
-            // 高光
-            highlightsSlider.value = 0;
-            highlightsValue.textContent = '0';
-            settings.highlights = 0;
-            
-            // 阴影
-            shadowsSlider.value = 0;
-            shadowsValue.textContent = '0';
-            settings.shadows = 0;
-            
-            // 颜色色调
-            redTintSlider.value = 0;
-            redTintValue.textContent = '0';
-            greenTintSlider.value = 0;
-            greenTintValue.textContent = '0';
-            blueTintSlider.value = 0;
-            blueTintValue.textContent = '0';
-            
-            // 应用预设值到设置对象
+            // 第二步：应用预设滤镜的所有参数
             for (const key in preset) {
                 switch (key) {
                     case 'bright':
@@ -646,6 +691,7 @@
                     case 'contrast':
                         contrastSlider.value = preset[key];
                         contrastValue.textContent = preset[key];
+                        settings.contrast = preset[key];
                         break;
                     case 'highlights':
                         highlightsSlider.value = preset[key];
@@ -660,20 +706,30 @@
                     case 'red_tint':
                         redTintSlider.value = preset[key];
                         redTintValue.textContent = preset[key];
+                        settings.redTint = preset[key];
                         break;
                     case 'green_tint':
                         greenTintSlider.value = preset[key];
                         greenTintValue.textContent = preset[key];
+                        settings.greenTint = preset[key];
                         break;
                     case 'blue_tint':
                         blueTintSlider.value = preset[key];
                         blueTintValue.textContent = preset[key];
+                        settings.blueTint = preset[key];
+                        break;
+                    case 'whites':
+                        whitesSlider.value = preset[key];
+                        settings.whites = preset[key];
                         break;
                     // 添加其他需要的参数处理
                 }
             }
             
-            // 触发图像更新
+            // 第三步：更新白平衡系数
+            updateWhiteBalanceCoefficients(settings);
+            
+            // 第四步：触发图像更新
             if (cachedImageData) {
                 debouncedImageUpdate();
                 // 触发直方图更新
