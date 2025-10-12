@@ -236,10 +236,20 @@ class ImageProcessor {
     });
   }
 
-  // Offscreen rendering helper
+  // Offscreen rendering helper with color space consistency
   renderToOffscreenCanvas(imageData, width, height) {
     this.offscreenCanvas.width = width;
     this.offscreenCanvas.height = height;
+
+    // 重新创建context以确保色彩空间一致性
+    this.offscreenContext = this.offscreenCanvas.getContext('2d', {
+      colorSpace: 'srgb',
+      alpha: true
+    });
+
+    // 设置图像平滑参数
+    this.offscreenContext.imageSmoothingEnabled = true;
+    this.offscreenContext.imageSmoothingQuality = 'high';
 
     // Create ImageData from array
     const canvasImageData = this.offscreenContext.createImageData(width, height);
@@ -254,7 +264,14 @@ class ImageProcessor {
   // Draw processed image to main canvas with optional progress
   drawProcessedImageToCanvas(processedData, width, height, targetCanvas, progress = null) {
     const tempCanvas = this.renderToOffscreenCanvas(processedData, width, height);
-    const targetContext = targetCanvas.getContext('2d');
+    const targetContext = targetCanvas.getContext('2d', {
+      colorSpace: 'srgb',
+      alpha: true
+    });
+
+    // 确保目标canvas的色彩空间设置
+    targetContext.imageSmoothingEnabled = true;
+    targetContext.imageSmoothingQuality = 'high';
 
     // Clear canvas
     targetContext.clearRect(0, 0, targetCanvas.width, targetCanvas.height);

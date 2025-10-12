@@ -188,12 +188,22 @@ class PerformanceOptimizer {
   applyCanvasOptimizations(canvas) {
     if (!canvas || !canvas.getContext) return;
     
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', {
+      // 确保色彩空间一致性
+      colorSpace: 'srgb',
+      alpha: true,
+      desynchronized: false
+    });
     
     // Apply image smoothing settings
     ctx.imageSmoothingEnabled = this.canvasSettings.imageSmoothingEnabled;
     if (ctx.imageSmoothingQuality !== undefined) {
       ctx.imageSmoothingQuality = this.canvasSettings.imageSmoothingQuality;
+    }
+    
+    // 设置色彩空间为sRGB以确保一致性
+    if (ctx.colorSpace) {
+      ctx.colorSpace = 'srgb';
     }
     
     return ctx;
@@ -343,13 +353,16 @@ class PerformanceOptimizer {
     });
   }
   
-  // Simple image scaling utility
+  // Simple image scaling utility with color space consistency
   scaleImageData(imageData, srcWidth, srcHeight, destWidth, destHeight) {
     const srcCanvas = document.createElement('canvas');
     srcCanvas.width = srcWidth;
     srcCanvas.height = srcHeight;
     
-    const srcCtx = srcCanvas.getContext('2d');
+    const srcCtx = srcCanvas.getContext('2d', {
+      colorSpace: 'srgb',
+      alpha: true
+    });
     const srcImageData = srcCtx.createImageData(srcWidth, srcHeight);
     srcImageData.data.set(imageData);
     srcCtx.putImageData(srcImageData, 0, 0);
@@ -358,7 +371,10 @@ class PerformanceOptimizer {
     destCanvas.width = destWidth;
     destCanvas.height = destHeight;
     
-    const destCtx = destCanvas.getContext('2d');
+    const destCtx = destCanvas.getContext('2d', {
+      colorSpace: 'srgb',
+      alpha: true
+    });
     destCtx.imageSmoothingEnabled = this.canvasSettings.imageSmoothingEnabled;
     destCtx.imageSmoothingQuality = this.canvasSettings.imageSmoothingQuality;
     destCtx.drawImage(srcCanvas, 0, 0, destWidth, destHeight);
@@ -421,6 +437,70 @@ class PerformanceOptimizer {
       processingTime: 0,
       renderTime: 0
     };
+  }
+  
+  // 确保Canvas色彩一致性的工具函数
+  ensureColorConsistency(canvas) {
+    if (!canvas || !canvas.getContext) return null;
+    
+    const ctx = canvas.getContext('2d', {
+      colorSpace: 'srgb',
+      alpha: true
+    });
+    
+    // 设置一致的图像平滑参数
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
+    return ctx;
+  }
+  
+  // 验证导出色彩一致性的函数
+  validateColorConsistency(sourceCanvas, exportedDataURL) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        // 创建临时canvas来比较
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = sourceCanvas.width;
+        tempCanvas.height = sourceCanvas.height;
+        
+        const tempCtx = this.ensureColorConsistency(tempCanvas);
+        tempCtx.drawImage(img, 0, 0);
+        
+        // 获取两个canvas的图像数据进行比较
+        const sourceData = sourceCanvas.getContext('2d').getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+        const exportedData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // 简单的像素差异检查
+        let differences = 0;
+        const tolerance = 5; // 允许的像素差异容差
+        
+        for (let i = 0; i < sourceData.data.length; i += 4) {
+          const sourceR = sourceData.data[i];
+          const sourceG = sourceData.data[i + 1];
+          const sourceB = sourceData.data[i + 2];
+          
+          const exportedR = exportedData.data[i];
+          const exportedG = exportedData.data[i + 1];
+          const exportedB = exportedData.data[i + 2];
+          
+          if (Math.abs(sourceR - exportedR) > tolerance ||
+              Math.abs(sourceG - exportedG) > tolerance ||
+              Math.abs(sourceB - exportedB) > tolerance) {
+            differences++;
+          }
+        }
+        
+        const consistency = ((sourceData.data.length / 4 - differences) / (sourceData.data.length / 4)) * 100;
+        resolve({
+          consistency: Math.round(consistency * 100) / 100,
+          differences,
+          totalPixels: sourceData.data.length / 4
+        });
+      };
+      img.src = exportedDataURL;
+    });
   }
 }
 

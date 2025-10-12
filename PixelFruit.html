@@ -43,6 +43,9 @@
                         相机白平衡
                     </label>
                 </div>
+                <div class="button-group">
+                    <button id="fullscreen-view-button" class="fullscreen-button" disabled>查看大屏图片</button>
+                </div>
                 <div class="slider-group">
                     <label for="brightness">亮度</label>
                     <div class="slider-wrapper">
@@ -96,8 +99,6 @@
                 <canvas id="image-canvas"></canvas>
                 <div class="status-message" id="status-message">请上传 RAW 文件以查看图像</div>
             </div>
-            
-            <!-- 曲线调整面板已移除 -->
         </div>
         
         <!-- 右侧面板：高级设置 -->
@@ -214,7 +215,36 @@
                     </div>
                 </div>
             </div>
-            
+
+            <div id="image-detail-panel" class="image-detail-panel">
+                <div class="detail-header">
+                    <h4>图片细节</h4>
+                </div>
+                <div class="detail-content">
+                    <div class="zoom-preview">
+                        <canvas id="zoom-canvas" width="200" height="200"></canvas>
+                    </div>
+                    <div class="pixel-info">
+                        <div class="info-item">
+                            <span class="label">位置:</span>
+                            <span class="value" id="pixel-position">请上传图片</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">RGB:</span>
+                            <span class="value" id="pixel-rgb">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">亮度:</span>
+                            <span class="value" id="pixel-brightness">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">色相:</span>
+                            <span class="value" id="pixel-hue">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="histogram-panel">
                 <div class="panel">
                     <div class="panel-header">
@@ -255,6 +285,19 @@
         const resetButton = document.getElementById('reset-button');
         const exportPngButton = document.getElementById('export-png-button');
         const exportJpegButton = document.getElementById('export-jpeg-button');
+        const fullscreenViewButton = document.getElementById('fullscreen-view-button');
+        const imageDetailPanel = document.getElementById('image-detail-panel');
+        const zoomCanvas = document.getElementById('zoom-canvas');
+        const pixelPosition = document.getElementById('pixel-position');
+        const pixelRgb = document.getElementById('pixel-rgb');
+        const pixelBrightness = document.getElementById('pixel-brightness');
+        const pixelHue = document.getElementById('pixel-hue');
+        
+        // 图片细节面板状态
+        let isDetailFixed = false;
+        let fixedPosition = { x: 0, y: 0 };
+        let lastUpdateTime = 0;
+        const UPDATE_THROTTLE = 16; // 约60fps的更新频率
         
         // 获取所有控件元素
         const useAutoWbCheckbox = document.getElementById('use-auto-wb');
@@ -418,14 +461,76 @@
         // 全局变量保存当前选择的文件对象
         let currentSelectedFile;
         
-        // 创建统一的防抖图像处理函数
-        const debouncedImageUpdate = debounceUtil(async () => {
-            if (cachedImageData) {
-                await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
-                // 图像更新完成后同步更新直方图
-                updateHistogram();
+        // 高性能批处理系统
+        let pendingUpdates = new Set();
+        let isProcessing = false;
+        let lastProcessTime = 0;
+        const PROCESS_THROTTLE = 50; // 最小处理间隔50ms
+        
+        // 批处理图像更新函数（优化版）
+        async function batchImageUpdate() {
+            if (isProcessing || !cachedImageData) return;
+            
+            const now = performance.now();
+            if (now - lastProcessTime < PROCESS_THROTTLE) {
+                // 如果处理太频繁，延迟到下一个动画帧
+                requestAnimationFrame(() => batchImageUpdate());
+                return;
             }
-        }, 100); // 优化：增加延迟到100ms，减少触发频率，提高性能
+            
+            isProcessing = true;
+            lastProcessTime = now;
+            const startTime = performance.now();
+            
+            try {
+                // 检查是否有缓存可用
+                const hasCache = lastProcessedSettings && processedImageData;
+                const cacheHit = hasCache && 
+                    JSON.stringify(lastProcessedSettings) === JSON.stringify({
+                        bright: settings.bright,
+                        exp_shift: settings.exp_shift,
+                        user_sat: settings.user_sat,
+                        sharpness: settings.sharpness !== undefined ? settings.sharpness : parseInt(sharpnessSlider.value),
+                        fbdd_noiserd: settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value),
+                        noiseType: currentNoiseReductionSettings.type,
+                        detailPreservation: currentNoiseReductionSettings.detailPreservation,
+                        user_mul: [...settings.user_mul],
+                        redTint: settings.redTint || 0,
+                        greenTint: settings.greenTint || 0,
+                        blueTint: settings.blueTint || 0
+                    });
+                
+                if (cacheHit) {
+                    // 使用缓存数据，直接绘制
+                    const imageData = new ImageData(processedImageData, cachedImageData.width, cachedImageData.height);
+                    ctx.putImageData(imageData, 0, 0);
+                } else {
+                    // 需要重新处理
+                    await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+                }
+                
+                // 更新性能统计
+                const processTime = performance.now() - startTime;
+                updatePerformanceStats(processTime, cacheHit);
+                
+                // 批量更新UI组件
+                requestAnimationFrame(() => {
+                    updateHistogram();
+                    refreshImageDetails();
+                    isProcessing = false;
+                });
+            } catch (error) {
+                console.error('批处理更新失败:', error);
+                isProcessing = false;
+            }
+        }
+        
+        // 智能防抖图像处理函数
+        const debouncedImageUpdate = debounceUtil(async () => {
+            if (cachedImageData && !isProcessing) {
+                await batchImageUpdate();
+            }
+        }, 80); // 减少防抖延迟，提高响应性
         
         // 用于检测滑块是否正在拖动的标志
         let isSliderDragging = false;
@@ -611,15 +716,43 @@
             alert('滤镜预设 "' + presetName + '" 已保存！');
         }
 
-        // 应用调整到缓存数据
+        // 处理缓存和优化
+        let lastProcessedSettings = null;
+        let processedImageData = null;
+        
+        // 应用调整到缓存数据（优化版）
         function applyAdjustmentsToCachedData(data, width, height) {
-            // 获取锐化值
-            const sharpness = settings.sharpness !== undefined ? settings.sharpness : parseInt(sharpnessSlider.value);
+            // 创建当前设置的快照
+            const currentSettings = {
+                bright: settings.bright,
+                exp_shift: settings.exp_shift,
+                user_sat: settings.user_sat,
+                sharpness: settings.sharpness !== undefined ? settings.sharpness : parseInt(sharpnessSlider.value),
+                fbdd_noiserd: settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value),
+                noiseType: currentNoiseReductionSettings.type,
+                detailPreservation: currentNoiseReductionSettings.detailPreservation,
+                user_mul: [...settings.user_mul],
+                redTint: settings.redTint || 0,
+                greenTint: settings.greenTint || 0,
+                blueTint: settings.blueTint || 0
+            };
             
-            // 获取降噪值
-            const noiseReduction = settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value);
+            // 检查设置是否发生变化
+            const settingsChanged = !lastProcessedSettings || 
+                JSON.stringify(currentSettings) !== JSON.stringify(lastProcessedSettings);
             
-            // 标记是否需要进行调整
+            if (!settingsChanged && processedImageData) {
+                // 如果设置没有变化且有缓存，直接使用缓存数据
+                data.set(processedImageData);
+                return;
+            }
+            
+            // 记录处理开始时间
+            const startTime = performance.now();
+            
+            // 获取处理参数
+            const sharpness = currentSettings.sharpness;
+            const noiseReduction = currentSettings.fbdd_noiserd;
             const needSharpness = sharpness > 0;
             const needNoiseReduction = noiseReduction > 0;
             
@@ -628,20 +761,32 @@
             
             // 先应用降噪
             if (needNoiseReduction) {
-                // 使用新的增强版降噪函数，传入更多参数
                 applyNoiseReduction(
                     data, 
                     width, 
                     height, 
                     noiseReduction, 
-                    currentNoiseReductionSettings.type,
-                    currentNoiseReductionSettings.detailPreservation
+                    currentSettings.noiseType,
+                    currentSettings.detailPreservation
                 );
             }
             
             // 然后应用锐化（在所有其他调整之后进行）
             if (needSharpness) {
                 applySharpness(data, width, height, sharpness);
+            }
+            
+            // 缓存处理结果
+            if (!processedImageData) {
+                processedImageData = new Uint8ClampedArray(data.length);
+            }
+            processedImageData.set(data);
+            lastProcessedSettings = currentSettings;
+            
+            // 记录处理时间
+            const endTime = performance.now();
+            if (endTime - startTime > 10) { // 只记录耗时超过10ms的处理
+                console.log(`图像处理耗时: ${(endTime - startTime).toFixed(2)}ms`);
             }
         }
         
@@ -672,6 +817,7 @@
                 resetButton.disabled = false;
                 exportPngButton.disabled = false;
                 exportJpegButton.disabled = false;
+                fullscreenViewButton.disabled = false;
                 
                 // 显示处理状态
                 statusMessage.textContent = '正在处理 RAW 文件...';
@@ -719,6 +865,9 @@
                 setTimeout(() => {
                     statusMessage.textContent = '';
                 }, 2000);
+                
+                // 刷新图片细节显示
+                refreshImageDetails();
                 
                 // 更新直方图
                 updateHistogram();
@@ -905,6 +1054,9 @@
                 // 更新图像显示
                 await updateImageFromCache();
                 
+                // 刷新图片细节显示
+                refreshImageDetails();
+                
                 statusMessage.textContent = '设置已应用';
                 setTimeout(() => {
                     statusMessage.textContent = '';
@@ -955,11 +1107,7 @@
                         applyContrast(rgbaData, contrast);
                     }
                     
-                    // 应用降噪
-                    const noiseReduction = parseInt(noiseReductionSlider.value);
-                    if (noiseReduction > 0) {
-                        applyNoiseReduction(rgbaData, imageData.width, imageData.height, noiseReduction);
-                    }
+                    // 降噪已在 applyAdjustmentsToCachedData 中处理，这里不需要重复调用
                     
                     // 应用锐化和清晰度调整
                     const sharpness = parseInt(sharpnessSlider.value);
@@ -1141,21 +1289,363 @@
             modal.style.opacity = '1';
         }
         
-        // 为图像容器添加点击事件监听器
-        imageContainer.addEventListener('click', showFullscreenPreview);
+        // 移除Canvas点击查看功能，改为使用按钮
         
-        // 为了提升用户体验，添加鼠标悬停效果
-        imageContainer.style.cursor = 'pointer';
-        imageContainer.style.transition = 'transform 0.2s ease';
+        // 查看大屏图片按钮事件监听器
+        fullscreenViewButton.addEventListener('click', showFullscreenPreview);
         
-        imageContainer.addEventListener('mouseenter', () => {
-            if (cachedImageData && cachedImageData.data) {
-                imageContainer.style.transform = 'scale(1.01)';
+        // 缓存Canvas图像数据
+        let cachedCanvasImageData = null;
+        let lastCanvasUpdateTime = 0;
+        
+        // 获取Canvas图像数据（带缓存）
+        function getCanvasImageData() {
+            const now = performance.now();
+            // 如果缓存数据存在且距离上次更新不到100ms，使用缓存
+            if (cachedCanvasImageData && (now - lastCanvasUpdateTime) < 100) {
+                return cachedCanvasImageData;
             }
-        });
+            
+            // 获取新的Canvas数据
+            cachedCanvasImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            lastCanvasUpdateTime = now;
+            return cachedCanvasImageData;
+        }
         
-        imageContainer.addEventListener('mouseleave', () => {
-            imageContainer.style.transform = 'scale(1)';
+        // 图片细节显示功能（优化版）
+        function showImageDetails(mouseX, mouseY) {
+            if (!cachedImageData || !cachedImageData.data) {
+                return;
+            }
+            
+            // 节流控制
+            const now = performance.now();
+            if (now - lastUpdateTime < UPDATE_THROTTLE) {
+                return;
+            }
+            lastUpdateTime = now;
+            
+            // 计算在Canvas上的相对位置
+            const canvasRect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / canvasRect.width;
+            const scaleY = canvas.height / canvasRect.height;
+            
+            let canvasX, canvasY;
+            
+            if (isDetailFixed) {
+                // 使用固定位置
+                canvasX = fixedPosition.x;
+                canvasY = fixedPosition.y;
+            } else {
+                // 使用鼠标位置
+                canvasX = Math.floor((mouseX - canvasRect.left) * scaleX);
+                canvasY = Math.floor((mouseY - canvasRect.top) * scaleY);
+            }
+            
+            // 确保坐标在有效范围内
+            if (canvasX < 0 || canvasX >= canvas.width || canvasY < 0 || canvasY >= canvas.height) {
+                return;
+            }
+            
+            // 使用缓存的Canvas图像数据
+            const currentImageData = getCanvasImageData();
+            const pixelIndex = (canvasY * canvas.width + canvasX) * 4;
+            const r = currentImageData.data[pixelIndex];
+            const g = currentImageData.data[pixelIndex + 1];
+            const b = currentImageData.data[pixelIndex + 2];
+            const a = currentImageData.data[pixelIndex + 3];
+            
+            // 更新像素信息显示
+            pixelPosition.textContent = `${canvasX}, ${canvasY}`;
+            pixelRgb.textContent = `(${r}, ${g}, ${b})`;
+            
+            // 计算亮度 (使用标准亮度公式)
+            const brightness = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+            pixelBrightness.textContent = brightness;
+            
+            // 计算色相
+            const hue = calculateHue(r, g, b);
+            pixelHue.textContent = `${hue}°`;
+            
+            // 创建放大预览（异步执行，避免阻塞）
+            requestAnimationFrame(() => {
+                createZoomPreview(canvasX, canvasY);
+            });
+        }
+        
+        // 计算色相的函数
+        function calculateHue(r, g, b) {
+            const max = Math.max(r, g, b);
+            const min = Math.min(r, g, b);
+            const delta = max - min;
+            
+            if (delta === 0) return 0;
+            
+            let hue = 0;
+            if (max === r) {
+                hue = ((g - b) / delta) % 6;
+            } else if (max === g) {
+                hue = (b - r) / delta + 2;
+            } else {
+                hue = (r - g) / delta + 4;
+            }
+            
+            hue = Math.round(hue * 60);
+            return hue < 0 ? hue + 360 : hue;
+        }
+        
+        // 创建放大预览（优化版）
+        function createZoomPreview(centerX, centerY) {
+            const zoomCtx = zoomCanvas.getContext('2d', { colorSpace: 'srgb' });
+            const zoomSize = 100; // 放大区域大小
+            const zoomFactor = 4; // 放大倍数
+            
+            // 计算源区域
+            const sourceX = Math.max(0, centerX - zoomSize / 2);
+            const sourceY = Math.max(0, centerY - zoomSize / 2);
+            const sourceWidth = Math.min(zoomSize, canvas.width - sourceX);
+            const sourceHeight = Math.min(zoomSize, canvas.height - sourceY);
+            
+            // 使用缓存的Canvas数据，避免重复获取
+            const currentImageData = getCanvasImageData();
+            
+            // 创建临时canvas来绘制放大区域
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = sourceWidth;
+            tempCanvas.height = sourceHeight;
+            const tempCtx = tempCanvas.getContext('2d', { colorSpace: 'srgb' });
+            
+            // 从缓存的图像数据中提取区域
+            const sourceImageData = new ImageData(sourceWidth, sourceHeight);
+            for (let y = 0; y < sourceHeight; y++) {
+                for (let x = 0; x < sourceWidth; x++) {
+                    const srcIndex = ((sourceY + y) * canvas.width + (sourceX + x)) * 4;
+                    const dstIndex = (y * sourceWidth + x) * 4;
+                    sourceImageData.data[dstIndex] = currentImageData.data[srcIndex];
+                    sourceImageData.data[dstIndex + 1] = currentImageData.data[srcIndex + 1];
+                    sourceImageData.data[dstIndex + 2] = currentImageData.data[srcIndex + 2];
+                    sourceImageData.data[dstIndex + 3] = currentImageData.data[srcIndex + 3];
+                }
+            }
+            
+            tempCtx.putImageData(sourceImageData, 0, 0);
+            
+            // 清空并绘制到放大canvas
+            zoomCtx.clearRect(0, 0, zoomCanvas.width, zoomCanvas.height);
+            zoomCtx.imageSmoothingEnabled = false; // 保持像素清晰
+            zoomCtx.drawImage(tempCanvas, 0, 0, sourceWidth * zoomFactor, sourceHeight * zoomFactor);
+            
+            // 绘制中心十字线
+            const centerPixelX = (centerX - sourceX) * zoomFactor;
+            const centerPixelY = (centerY - sourceY) * zoomFactor;
+            
+            zoomCtx.strokeStyle = '#ff0000';
+            zoomCtx.lineWidth = 1;
+            zoomCtx.beginPath();
+            zoomCtx.moveTo(centerPixelX, 0);
+            zoomCtx.lineTo(centerPixelX, zoomCanvas.height);
+            zoomCtx.moveTo(0, centerPixelY);
+            zoomCtx.lineTo(zoomCanvas.width, centerPixelY);
+            zoomCtx.stroke();
+        }
+        
+        // 初始化图片细节面板
+        function initializeImageDetailPanel() {
+            pixelPosition.textContent = '请上传图片';
+            pixelRgb.textContent = '-';
+            pixelBrightness.textContent = '-';
+            pixelHue.textContent = '-';
+            
+            // 清空放大预览
+            const zoomCtx = zoomCanvas.getContext('2d', { colorSpace: 'srgb' });
+            zoomCtx.clearRect(0, 0, zoomCanvas.width, zoomCanvas.height);
+            zoomCtx.fillStyle = '#f8f9fa';
+            zoomCtx.fillRect(0, 0, zoomCanvas.width, zoomCanvas.height);
+            zoomCtx.fillStyle = '#6c757d';
+            zoomCtx.font = '14px Arial';
+            zoomCtx.textAlign = 'center';
+            zoomCtx.fillText('无图片', zoomCanvas.width / 2, zoomCanvas.height / 2);
+            
+            // 初始化模式状态
+            isDetailFixed = false;
+            updateDetailModeIndicator();
+        }
+        
+        // 初始化面板
+        initializeImageDetailPanel();
+        
+        // 降噪算法测试函数
+        function testNoiseReduction() {
+            console.log('=== 降噪算法测试 ===');
+            console.log('当前降噪设置:', {
+                strength: noiseReductionSlider.value,
+                type: currentNoiseReductionSettings.type,
+                detailPreservation: currentNoiseReductionSettings.detailPreservation
+            });
+            
+            // 检查降噪函数是否正确导入
+            if (typeof applyNoiseReduction === 'function') {
+                console.log('✅ applyNoiseReduction 函数已正确导入');
+            } else {
+                console.error('❌ applyNoiseReduction 函数未找到');
+            }
+            
+            // 检查降噪是否在图像处理流程中被调用
+            console.log('降噪处理流程:', {
+                needNoiseReduction: parseInt(noiseReductionSlider.value) > 0,
+                currentSettings: currentNoiseReductionSettings
+            });
+        }
+        
+        // 在页面加载完成后运行测试
+        setTimeout(testNoiseReduction, 1000);
+        
+        // 性能监控系统
+        let performanceStats = {
+            totalOperations: 0,
+            averageProcessTime: 0,
+            maxProcessTime: 0,
+            cacheHits: 0,
+            cacheMisses: 0
+        };
+        
+        // 性能监控函数
+        function updatePerformanceStats(processTime, cacheHit = false) {
+            performanceStats.totalOperations++;
+            performanceStats.averageProcessTime = 
+                (performanceStats.averageProcessTime * (performanceStats.totalOperations - 1) + processTime) / 
+                performanceStats.totalOperations;
+            performanceStats.maxProcessTime = Math.max(performanceStats.maxProcessTime, processTime);
+            
+            if (cacheHit) {
+                performanceStats.cacheHits++;
+            } else {
+                performanceStats.cacheMisses++;
+            }
+            
+            // 每100次操作输出一次性能报告
+            if (performanceStats.totalOperations % 100 === 0) {
+                console.log('📊 性能统计:', {
+                    总操作次数: performanceStats.totalOperations,
+                    平均处理时间: `${performanceStats.averageProcessTime.toFixed(2)}ms`,
+                    最大处理时间: `${performanceStats.maxProcessTime.toFixed(2)}ms`,
+                    缓存命中率: `${(performanceStats.cacheHits / (performanceStats.cacheHits + performanceStats.cacheMisses) * 100).toFixed(1)}%`
+                });
+            }
+        }
+        
+        // 渐进式渲染函数
+        function progressiveRender(imageData, width, height, quality = 1.0) {
+            return new Promise((resolve) => {
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d', { colorSpace: 'srgb' });
+                
+                // 根据质量调整尺寸
+                const renderWidth = Math.floor(width * quality);
+                const renderHeight = Math.floor(height * quality);
+                
+                tempCanvas.width = renderWidth;
+                tempCanvas.height = renderHeight;
+                
+                // 创建缩放后的图像数据
+                const scaledImageData = new ImageData(renderWidth, renderHeight);
+                const scaleX = width / renderWidth;
+                const scaleY = height / renderHeight;
+                
+                for (let y = 0; y < renderHeight; y++) {
+                    for (let x = 0; x < renderWidth; x++) {
+                        const srcX = Math.floor(x * scaleX);
+                        const srcY = Math.floor(y * scaleY);
+                        const srcIdx = (srcY * width + srcX) * 4;
+                        const dstIdx = (y * renderWidth + x) * 4;
+                        
+                        scaledImageData.data[dstIdx] = imageData.data[srcIdx];
+                        scaledImageData.data[dstIdx + 1] = imageData.data[srcIdx + 1];
+                        scaledImageData.data[dstIdx + 2] = imageData.data[srcIdx + 2];
+                        scaledImageData.data[dstIdx + 3] = imageData.data[srcIdx + 3];
+                    }
+                }
+                
+                tempCtx.putImageData(scaledImageData, 0, 0);
+                
+                // 绘制到主Canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
+                
+                resolve();
+            });
+        }
+        
+        // 切换固定/跟随模式
+        function toggleDetailMode(mouseX, mouseY) {
+            if (!cachedImageData || !cachedImageData.data) {
+                return;
+            }
+            
+            if (isDetailFixed) {
+                // 当前是固定模式，切换到跟随模式
+                isDetailFixed = false;
+                updateDetailModeIndicator();
+            } else {
+                // 当前是跟随模式，切换到固定模式
+                const canvasRect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / canvasRect.width;
+                const scaleY = canvas.height / canvasRect.height;
+                
+                fixedPosition.x = Math.floor((mouseX - canvasRect.left) * scaleX);
+                fixedPosition.y = Math.floor((mouseY - canvasRect.top) * scaleY);
+                
+                // 确保坐标在有效范围内
+                if (fixedPosition.x >= 0 && fixedPosition.x < canvas.width && 
+                    fixedPosition.y >= 0 && fixedPosition.y < canvas.height) {
+                    isDetailFixed = true;
+                    updateDetailModeIndicator();
+                }
+            }
+        }
+        
+        // 更新模式指示器
+        function updateDetailModeIndicator() {
+            const modeText = isDetailFixed ? '固定模式' : '跟随模式';
+            const header = document.querySelector('.detail-header h4');
+            header.textContent = `图片细节 - ${modeText}`;
+            
+            // 添加视觉反馈
+            if (isDetailFixed) {
+                imageDetailPanel.style.borderColor = '#e74c3c';
+                imageDetailPanel.style.borderWidth = '2px';
+            } else {
+                imageDetailPanel.style.borderColor = 'var(--border-color)';
+                imageDetailPanel.style.borderWidth = '1px';
+            }
+        }
+        
+        // 刷新图片细节显示
+        function refreshImageDetails() {
+            // 清除Canvas数据缓存，强制获取最新数据
+            cachedCanvasImageData = null;
+            lastCanvasUpdateTime = 0;
+            
+            if (isDetailFixed) {
+                // 如果是固定模式，使用固定位置刷新
+                const canvasRect = canvas.getBoundingClientRect();
+                const mouseX = canvasRect.left + (fixedPosition.x * canvasRect.width / canvas.width);
+                const mouseY = canvasRect.top + (fixedPosition.y * canvasRect.height / canvas.height);
+                showImageDetails(mouseX, mouseY);
+            }
+            // 跟随模式不需要主动刷新，会在鼠标移动时自动更新
+        }
+        
+        // 为Canvas添加鼠标事件（优化版）
+        canvas.addEventListener('mousemove', (e) => {
+            // 使用requestAnimationFrame来优化性能
+            requestAnimationFrame(() => {
+                showImageDetails(e.clientX, e.clientY);
+            });
+        }, { passive: true });
+        
+        canvas.addEventListener('click', (e) => {
+            toggleDetailMode(e.clientX, e.clientY);
         });
         
         // 导出按钮事件监听器

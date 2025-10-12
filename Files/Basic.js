@@ -90,7 +90,7 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
 
 
 /**
- * 导出图像为指定格式
+ * 导出图像为指定格式 - 确保色彩一致性
  * @param {HTMLCanvasElement} canvas - 要导出的画布元素
  * @param {string} format - 导出格式 ('png' 或 'jpeg')
  * @param {number} quality - 导出质量 (0-1, 仅对jpeg有效)
@@ -116,8 +116,25 @@ export function exportImage(canvas, format = 'png', quality = 0.9, filename = 'e
             const extension = format === 'jpg' ? 'jpeg' : format;
             const fullFilename = `${filename}.${extension}`;
             
-            // 转换canvas为数据URL
-            const dataURL = canvas.toDataURL(`image/${extension}`, quality);
+            // 创建一个临时canvas来确保色彩一致性
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            
+            const tempCtx = tempCanvas.getContext('2d', {
+                colorSpace: 'srgb',
+                alpha: true
+            });
+            
+            // 确保图像平滑设置一致
+            tempCtx.imageSmoothingEnabled = true;
+            tempCtx.imageSmoothingQuality = 'high';
+            
+            // 将原canvas内容复制到临时canvas，保持色彩空间一致
+            tempCtx.drawImage(canvas, 0, 0);
+            
+            // 从临时canvas导出，确保色彩一致性
+            const dataURL = tempCanvas.toDataURL(`image/${extension}`, quality);
             
             // 创建下载链接
             const link = document.createElement('a');
