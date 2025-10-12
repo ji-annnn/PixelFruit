@@ -1713,11 +1713,22 @@
                 statusMessage.textContent = '正在应用所有颜色调整...';
                 // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
                 updateWhiteBalanceCoefficients(settings);
+                
+                // 临时增加饱和度+20用于导出
+                const originalSaturation = settings.user_sat;
+                settings.user_sat = Math.min(300, originalSaturation + 20); // 限制最大值为300
+                
                 // 更新图像以确保所有调整都反映在canvas上
                 await updateImageFromCache();
                 
                 statusMessage.textContent = '正在导出 PNG 图像...';
                 await exportImage(canvas, 'png', 1.0, baseFilename);
+                
+                // 恢复原始饱和度设置
+                settings.user_sat = originalSaturation;
+                saturationSlider.value = originalSaturation;
+                saturationValue.textContent = originalSaturation;
+                
                 statusMessage.textContent = 'PNG 图像导出成功';
                 setTimeout(() => {
                     statusMessage.textContent = '';
@@ -1739,11 +1750,22 @@
                 statusMessage.textContent = '正在应用所有颜色调整...';
                 // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
                 updateWhiteBalanceCoefficients(settings);
+                
+                // 临时增加饱和度+20用于导出
+                const originalSaturation = settings.user_sat;
+                settings.user_sat = Math.min(300, originalSaturation + 20); // 限制最大值为300
+                
                 // 更新图像以确保所有调整都反映在canvas上
                 await updateImageFromCache();
                 
                 statusMessage.textContent = '正在导出 JPEG 图像...';
                 await exportImage(canvas, 'jpeg', 0.9, baseFilename);
+                
+                // 恢复原始饱和度设置
+                settings.user_sat = originalSaturation;
+                saturationSlider.value = originalSaturation;
+                saturationValue.textContent = originalSaturation;
+                
                 statusMessage.textContent = 'JPEG 图像导出成功';
                 setTimeout(() => {
                     statusMessage.textContent = '';
