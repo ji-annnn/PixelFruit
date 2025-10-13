@@ -273,6 +273,7 @@
         import { applyUnsharpMask, applySharpness, applyNoiseReduction } from './Files/Details.js';
         import { initSliderManager, addSliderEventListener, addSliderEventListenersBatch } from './Files/SliderManager.js';
         import { drawEmptyHistogram, optimizedUpdateHistogram, createDebouncedHistogramUpdate } from './Files/HistogramManager.js';
+        import { exportImage, exportPNG, exportJPEG } from './Files/exportImage.js';
         
         // 获取DOM元素
         const rawFileInput = document.getElementById('raw-file');
@@ -453,7 +454,7 @@
         const libraw = new LibRaw();
         
         // 从Basic.js导入基础功能函数，为debounce添加别名避免冲突
-        const { debounce: debounceUtil, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache, exportImage } = await import('./Files/Basic.js');
+        const { debounce: debounceUtil, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache } = await import('./Files/Basic.js');
         
         // 从Correction.js导入校正模块
         const { correctionModule } = await import('./Files/Correction.js');
@@ -1722,7 +1723,7 @@
                 await updateImageFromCache();
                 
                 statusMessage.textContent = '正在导出 PNG 图像...';
-                await exportImage(canvas, 'png', 1.0, baseFilename);
+                await exportPNG(canvas, baseFilename);
                 
                 // 恢复原始饱和度设置
                 settings.user_sat = originalSaturation;
@@ -1759,7 +1760,7 @@
                 await updateImageFromCache();
                 
                 statusMessage.textContent = '正在导出 JPEG 图像...';
-                await exportImage(canvas, 'jpeg', 0.9, baseFilename);
+                await exportJPEG(canvas, 0.9, baseFilename);
                 
                 // 恢复原始饱和度设置
                 settings.user_sat = originalSaturation;
