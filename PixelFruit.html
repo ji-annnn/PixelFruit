@@ -107,7 +107,7 @@
                 <div class="tabs">
                     <button class="tab active" data-tab="color">颜色调整</button>
                     <button class="tab" data-tab="detail">细节处理</button>
-                    <button class="tab" data-tab="perspective">透视校正</button>
+                    <button class="tab" data-tab="color-replace">颜色替换</button>
                 </div>
                 
                 <div class="tab-content active" id="color-tab">
@@ -194,24 +194,10 @@
                     </div>
                 </div>
                 
-                <div class="tab-content" id="perspective-tab">
-                    <div class="perspective-controls">
-                        <div class="slider-group">
-                            <label for="vertical-tilt">垂直倾斜</label>
-                            <input type="range" id="vertical-tilt" min="-10" max="10" step="0.1" value="0">
-                        </div>
-                        <div class="slider-group">
-                            <label for="horizontal-tilt">水平倾斜</label>
-                            <input type="range" id="horizontal-tilt" min="-10" max="10" step="0.1" value="0">
-                        </div>
-                        <div class="slider-group">
-                            <label for="rotate">旋转</label>
-                            <input type="range" id="rotate" min="-180" max="180" step="1" value="0">
-                        </div>
-                        <div class="slider-group">
-                            <label for="scale">缩放</label>
-                            <input type="range" id="scale" min="50" max="200" step="1" value="100">
-                        </div>
+                <div class="tab-content" id="color-replace-tab">
+                    <div class="color-replace-controls">
+                        <!-- 颜色替换功能将在这里实现 -->
+                        <p style="text-align: center; color: #666; padding: 20px;">颜色替换功能即将推出</p>
                     </div>
                 </div>
             </div>
@@ -328,10 +314,6 @@
         const shadowsSlider = document.getElementById('shadows');
         const shadowsValue = document.getElementById('shadows-value');
         const whitesSlider = document.getElementById('whites');
-        const verticalTiltSlider = document.getElementById('vertical-tilt');
-        const horizontalTiltSlider = document.getElementById('horizontal-tilt');
-        const rotateSlider = document.getElementById('rotate');
-        const scaleSlider = document.getElementById('scale');
         const noiseReductionTypeSelect = document.getElementById('noise-reduction-type');
         const detailPreservationSlider = document.getElementById('detail-preservation');
         const detailPreservationValue = document.getElementById('detail-preservation-value');
@@ -456,8 +438,6 @@
         // 从Basic.js导入基础功能函数，为debounce添加别名避免冲突
         const { debounce: debounceUtil, readFileAsArrayBuffer, updateImageFromCache: basicUpdateImageFromCache } = await import('./Files/Basic.js');
         
-        // 从Correction.js导入校正模块
-        const { correctionModule } = await import('./Files/Correction.js');
         
         // 全局变量保存当前选择的文件对象
         let currentSelectedFile;
@@ -561,8 +541,6 @@
         // 暴露isSliderDragging标志供Details.js使用
         window.isSliderDragging = () => isSliderDragging;
         
-        // 初始化校正模块
-        correctionModule.init(debouncedImageUpdate);
         
         // 初始化滤镜选择器
         function initFilterSelector() {
@@ -638,11 +616,6 @@
             textureSlider.value = 0;
             textureValue.textContent = '0';
             
-            // 重置透视校正
-            verticalTiltSlider.value = 0;
-            horizontalTiltSlider.value = 0;
-            rotateSlider.value = 0;
-            scaleSlider.value = 100;
             
             // 重置白平衡复选框
             useAutoWbCheckbox.checked = true;
@@ -968,10 +941,6 @@
             highlightsSlider.value = 0;
             shadowsSlider.value = 0;
             whitesSlider.value = 100;
-            verticalTiltSlider.value = 0;
-            horizontalTiltSlider.value = 0;
-            rotateSlider.value = 0;
-            scaleSlider.value = 100;
             
             // 重置降噪设置
             currentNoiseReductionSettings = {
@@ -1177,12 +1146,8 @@
                     const canvasImageData = ctx.createImageData(imageData.width, imageData.height);
                     canvasImageData.data.set(rgbaData);
                     
-                    // 应用透视和旋转调整
-                    // 由于 applyPerspectiveTransform 函数会直接绘制到主画布，我们需要先清空主画布
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    
-                    // 使用校正模块应用透视变换
-                    correctionModule.applyPerspectiveTransform(canvasImageData, ctx, canvas);
+                    // 直接绘制到画布
+                    ctx.putImageData(canvasImageData, 0, 0);
                 } else {
                     // 已经是 RGBA 格式
                     const canvasImageData = ctx.createImageData(imageData.width, imageData.height);
@@ -1715,20 +1680,11 @@
                 // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
                 updateWhiteBalanceCoefficients(settings);
                 
-                // 临时增加饱和度+20用于导出
-                const originalSaturation = settings.user_sat;
-                settings.user_sat = Math.min(300, originalSaturation + 20); // 限制最大值为300
-                
                 // 更新图像以确保所有调整都反映在canvas上
                 await updateImageFromCache();
                 
                 statusMessage.textContent = '正在导出 PNG 图像...';
                 await exportPNG(canvas, baseFilename);
-                
-                // 恢复原始饱和度设置
-                settings.user_sat = originalSaturation;
-                saturationSlider.value = originalSaturation;
-                saturationValue.textContent = originalSaturation;
                 
                 statusMessage.textContent = 'PNG 图像导出成功';
                 setTimeout(() => {
@@ -1752,20 +1708,11 @@
                 // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
                 updateWhiteBalanceCoefficients(settings);
                 
-                // 临时增加饱和度+20用于导出
-                const originalSaturation = settings.user_sat;
-                settings.user_sat = Math.min(300, originalSaturation + 20); // 限制最大值为300
-                
                 // 更新图像以确保所有调整都反映在canvas上
                 await updateImageFromCache();
                 
                 statusMessage.textContent = '正在导出 JPEG 图像...';
                 await exportJPEG(canvas, 0.9, baseFilename);
-                
-                // 恢复原始饱和度设置
-                settings.user_sat = originalSaturation;
-                saturationSlider.value = originalSaturation;
-                saturationValue.textContent = originalSaturation;
                 
                 statusMessage.textContent = 'JPEG 图像导出成功';
                 setTimeout(() => {
