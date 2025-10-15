@@ -529,3 +529,310 @@ button:disabled {
     padding: 2px 6px;
     border-radius: 3px;
 }
+
+/* 颜色替换功能样式 */
+.color-replace-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.color-range-selector,
+.mix-color-settings,
+.color-replace-history {
+    background-color: #f8f9fa;
+    padding: 15px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border-color);
+}
+
+.color-range-selector h4,
+.mix-color-settings h4,
+.color-replace-history h4 {
+    margin: 0 0 15px 0;
+    color: var(--primary-color);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.color-inputs {
+    display: flex;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.color-input-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+}
+
+.color-input-group input[type="color"] {
+    width: 50px;
+    height: 40px;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 2px;
+    background: white;
+    transition: border-color 0.3s ease;
+}
+
+.color-input-group input[type="color"]:hover {
+    border-color: var(--primary-color);
+}
+
+.color-input-group label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-align: center;
+    font-weight: 500;
+}
+
+.range-wrapper {
+    position: relative;
+    width: 100%;
+    height: 40px;
+    margin-bottom: 15px;
+    padding: 15px 0;
+    top: 2px;
+}
+
+.gradient-track {
+    position: absolute;
+    width: calc(100% - 24px);
+    height: 10px;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-radius: 6px;
+    background: linear-gradient(to right, #ff0000, #0000ff);
+    z-index: 1;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.range-slider {
+    position: absolute;
+    width: calc(100% - 24px);
+    left: 12px;
+    height: 100%;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    outline: none;
+    z-index: 2;
+    margin: 0;
+}
+
+.range-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #333;
+    cursor: pointer;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+.range-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.15);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+    border-color: #555;
+}
+
+.range-slider::-moz-range-thumb {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: white;
+    border: 3px solid #333;
+    cursor: pointer;
+    z-index: 3;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: all 0.2s ease;
+}
+
+
+.mix-color-input {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.mix-color-input input[type="color"] {
+    width: 50px;
+    height: 40px;
+    border: 2px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 2px;
+    background: white;
+    transition: border-color 0.3s ease;
+}
+
+.mix-color-input input[type="color"]:hover {
+    border-color: var(--primary-color);
+}
+
+.mix-color-input label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.mix-ratio {
+    margin-bottom: 15px;
+}
+
+.color-replace-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin: 15px 0;
+}
+
+.action-button {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    background-color: #f0f0f0;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+}
+
+.action-button:hover {
+    background-color: #e0e0e0;
+    transform: translateY(-1px);
+}
+
+.action-button.primary {
+    background-color: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.action-button.primary:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.color-replace-result {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 15px 0;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.history-table-container {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.history-table th,
+.history-table td {
+    padding: 8px;
+    text-align: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.history-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    color: var(--text-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.history-table td {
+    color: var(--text-secondary);
+}
+
+.color-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.color-swatch {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.history-actions {
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.history-btn {
+    padding: 4px 8px;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+}
+
+.history-btn.edit {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.history-btn.edit:hover {
+    background-color: var(--secondary-color);
+}
+
+.history-btn.delete {
+    background-color: #e74c3c;
+    color: white;
+}
+
+.history-btn.delete:hover {
+    background-color: #c0392b;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .color-inputs {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .color-replace-actions {
+        flex-direction: column;
+    }
+    
+    .action-button {
+        width: 100%;
+    }
+}

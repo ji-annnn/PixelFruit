@@ -196,8 +196,79 @@
                 
                 <div class="tab-content" id="color-replace-tab">
                     <div class="color-replace-controls">
-                        <!-- 颜色替换功能将在这里实现 -->
-                        <p style="text-align: center; color: #666; padding: 20px;">颜色替换功能即将推出</p>
+                        <!-- 颜色范围选择器 -->
+                        <div class="color-range-selector">
+                            <h4>颜色范围选择</h4>
+                            <div class="color-inputs">
+                                <div class="color-input-group">
+                                    <input type="color" id="color-range-start" value="#ff0000">
+                                    <label for="color-range-start">起始颜色</label>
+                                </div>
+                                <div class="color-input-group">
+                                    <input type="color" id="color-range-end" value="#0000ff">
+                                    <label for="color-range-end">结束颜色</label>
+                                </div>
+                            </div>
+                            
+                            <!-- 渐变滑块 -->
+                            <div class="range-wrapper" id="colorRangeContainer">
+                                <div class="gradient-track" id="colorGradientTrack"></div>
+                                <input type="range" id="colorSlider1" class="range-slider" min="0" max="100" value="0">
+                                <input type="range" id="colorSlider2" class="range-slider" min="0" max="100" value="100">
+                            </div>
+                            
+                        </div>
+                        
+                        <!-- 混合颜色设置 -->
+                        <div class="mix-color-settings">
+                            <h4>混合颜色设置</h4>
+                            <div class="mix-color-input">
+                                <input type="color" id="mixColorInput" value="#ffffff">
+                                <label for="mixColorInput">混合颜色</label>
+                            </div>
+                            <div class="mix-ratio">
+                                <label for="mixRatio">混合比例</label>
+                                <div class="slider-wrapper">
+                                    <input type="range" id="mixRatio" min="0" max="100" step="1" value="50">
+                                    <span class="value-display" id="mixRatio-value">50%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 操作按钮 -->
+                        <div class="color-replace-actions">
+                            <button id="previewColorReplace" class="action-button">预览效果</button>
+                            <button id="applyColorReplace" class="action-button primary">应用替换</button>
+                            <button id="undoColorReplace" class="action-button">撤销</button>
+                        </div>
+                        
+                        <!-- 处理结果 -->
+                        <div class="color-replace-result" id="colorReplaceResult" style="display: none;">
+                            <div class="result-info">
+                                <span id="replacedPixelsCount">0</span> 个像素已替换
+                            </div>
+                        </div>
+                        
+                        <!-- 颜色替换历史表格 -->
+                        <div class="color-replace-history">
+                            <h4>替换历史</h4>
+                            <div class="history-table-container">
+                                <table id="colorReplaceTable" class="history-table">
+                                    <thead>
+                                        <tr>
+                                            <th>起始颜色</th>
+                                            <th>结束颜色</th>
+                                            <th>混合颜色</th>
+                                            <th>混合比例</th>
+                                            <th>替换像素</th>
+                                            <th>操作</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="colorReplaceTableBody">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -260,6 +331,7 @@
         import { initSliderManager, addSliderEventListener, addSliderEventListenersBatch } from './Files/SliderManager.js';
         import { drawEmptyHistogram, optimizedUpdateHistogram, createDebouncedHistogramUpdate } from './Files/HistogramManager.js';
         import { exportImage, exportPNG, exportJPEG } from './Files/exportImage.js';
+        import { initColorReplace } from './Files/Replacecolor.js';
         
         // 获取DOM元素
         const rawFileInput = document.getElementById('raw-file');
@@ -960,6 +1032,33 @@
         
         // 初始化滑块管理器
         initSliderManager();
+        
+        // 初始化颜色替换功能
+        const colorReplaceElements = {
+            colorRangeStart: document.getElementById('color-range-start'),
+            colorRangeEnd: document.getElementById('color-range-end'),
+            colorSlider1: document.getElementById('colorSlider1'),
+            colorSlider2: document.getElementById('colorSlider2'),
+            colorGradientTrack: document.getElementById('colorGradientTrack'),
+            colorRangeContainer: document.getElementById('colorRangeContainer'),
+            mixColorInput: document.getElementById('mixColorInput'),
+            mixRatio: document.getElementById('mixRatio'),
+            mixRatioValue: document.getElementById('mixRatio-value'),
+            previewColorReplace: document.getElementById('previewColorReplace'),
+            applyColorReplace: document.getElementById('applyColorReplace'),
+            undoColorReplace: document.getElementById('undoColorReplace'),
+            colorReplaceResult: document.getElementById('colorReplaceResult'),
+            replacedPixelsCount: document.getElementById('replacedPixelsCount'),
+            colorReplaceTableBody: document.getElementById('colorReplaceTableBody')
+        };
+        
+        const colorReplaceCanvas = {
+            ctx: ctx,
+            canvas: canvas
+        };
+        
+        // 初始化颜色替换功能
+        initColorReplace(colorReplaceElements, colorReplaceCanvas, debouncedImageUpdate);
         
         // 使用SliderManager批量添加滑块事件监听器
         addSliderEventListenersBatch([
