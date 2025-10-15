@@ -1791,12 +1791,18 @@
                 // 使用当前文件名（如果有）或默认名称
                 const baseFilename = currentSelectedFile ? currentSelectedFile.name.replace(/\.[^/.]+$/, '') : 'exported-image';
                 
-                statusMessage.textContent = '正在应用所有颜色调整...';
-                // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
-                updateWhiteBalanceCoefficients(settings);
+                // 检查是否有颜色替换历史记录
+                const hasColorReplacements = window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0;
                 
-                // 更新图像以确保所有调整都反映在canvas上
-                await updateImageFromCache();
+                if (!hasColorReplacements) {
+                    // 没有颜色替换时，正常处理图像调整
+                    statusMessage.textContent = '正在应用所有颜色调整...';
+                    updateWhiteBalanceCoefficients(settings);
+                    await updateImageFromCache();
+                } else {
+                    // 有颜色替换时，直接导出当前Canvas状态
+                    statusMessage.textContent = '正在导出 PNG 图像（包含颜色替换）...';
+                }
                 
                 statusMessage.textContent = '正在导出 PNG 图像...';
                 await exportPNG(canvas, baseFilename);
@@ -1819,12 +1825,18 @@
                 // 使用当前文件名（如果有）或默认名称
                 const baseFilename = currentSelectedFile ? currentSelectedFile.name.replace(/\.[^/.]+$/, '') : 'exported-image';
                 
-                statusMessage.textContent = '正在应用所有颜色调整...';
-                // 确保所有颜色调整都已应用，特别是用户自定义的色调参数
-                updateWhiteBalanceCoefficients(settings);
+                // 检查是否有颜色替换历史记录
+                const hasColorReplacements = window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0;
                 
-                // 更新图像以确保所有调整都反映在canvas上
-                await updateImageFromCache();
+                if (!hasColorReplacements) {
+                    // 没有颜色替换时，正常处理图像调整
+                    statusMessage.textContent = '正在应用所有颜色调整...';
+                    updateWhiteBalanceCoefficients(settings);
+                    await updateImageFromCache();
+                } else {
+                    // 有颜色替换时，直接导出当前Canvas状态
+                    statusMessage.textContent = '正在导出 JPEG 图像（包含颜色替换）...';
+                }
                 
                 statusMessage.textContent = '正在导出 JPEG 图像...';
                 await exportJPEG(canvas, 0.9, baseFilename);

@@ -239,9 +239,10 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         // 显示结果
         showReplaceResult(replacedPixels);
         
-        // 注意：不调用updateImageCallback，因为颜色替换是直接修改Canvas的
-        // 调用updateImageCallback会重新处理图像，覆盖颜色替换效果
-        console.log('颜色替换完成，未触发图像更新回调');
+        // 更新UI组件（直方图、图像详情等）
+        updateUIComponents();
+        
+        console.log('颜色替换完成，已更新UI组件');
     }
 
     /**
@@ -267,8 +268,28 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         // 显示撤销成功信息
         showReplaceResult(0, '已撤销最后一次颜色替换');
         
-        // 注意：不调用updateImageCallback，因为撤销是直接修改Canvas的
-        console.log('颜色替换撤销完成，未触发图像更新回调');
+        // 更新UI组件（直方图、图像详情等）
+        updateUIComponents();
+        
+        console.log('颜色替换撤销完成，已更新UI组件');
+    }
+
+    /**
+     * 更新UI组件（直方图、图像详情等）
+     */
+    function updateUIComponents() {
+        // 更新直方图
+        if (window.updateHistogram) {
+            window.updateHistogram();
+        }
+        
+        // 更新图像详情
+        if (window.refreshImageDetails) {
+            window.refreshImageDetails();
+        }
+        
+        // 清除颜色缓存，因为图像已经改变
+        clearColorCache();
     }
 
     /**
@@ -365,6 +386,8 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
     }
 
     // 暴露全局函数供HTML调用
+    window.getColorReplaceHistory = getColorReplaceHistory;
+    
     window.editColorReplace = function(index) {
         const record = colorReplaceHistory[index];
         if (record) {
@@ -399,8 +422,10 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
             // 更新表格
             updateHistoryTable();
             
-            // 注意：不调用updateImageCallback，因为删除是直接修改Canvas的
-            console.log('颜色替换删除完成，未触发图像更新回调');
+            // 更新UI组件（直方图、图像详情等）
+            updateUIComponents();
+            
+            console.log('颜色替换删除完成，已更新UI组件');
         }
     };
 }
@@ -502,7 +527,7 @@ function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startTo
             Math.pow(pixelRgb.g - startRgb.g, 2) +
             Math.pow(pixelRgb.b - startRgb.b, 2)
         );
-        return distance <= 30; // 容差
+        return distance <= 60; // 增加容差，扩大颜色范围
     }
     
     const pixelToStart = {
@@ -532,9 +557,9 @@ function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startTo
             Math.pow(pixelRgb.b - projectedPoint.b, 2)
         );
         
-        // 动态容差：根据颜色范围的长度调整容差
+        // 动态容差：根据颜色范围的长度调整容差，增加容差范围
         const rangeLength = Math.sqrt(startToEndLengthSquared);
-        const dynamicTolerance = Math.max(20, Math.min(50, rangeLength * 0.1));
+        const dynamicTolerance = Math.max(40, Math.min(100, rangeLength * 0.2));
         
         return distance <= dynamicTolerance;
     }
@@ -574,7 +599,7 @@ function isColorInRange(pixelRgb, startRgb, endRgb) {
             Math.pow(pixelRgb.g - startRgb.g, 2) +
             Math.pow(pixelRgb.b - startRgb.b, 2)
         );
-        return distance <= 30; // 容差
+        return distance <= 60; // 增加容差，扩大颜色范围
     }
     
     // 计算投影比例
@@ -595,9 +620,9 @@ function isColorInRange(pixelRgb, startRgb, endRgb) {
             Math.pow(pixelRgb.b - projectedPoint.b, 2)
         );
         
-        // 动态容差：根据颜色范围的长度调整容差
+        // 动态容差：根据颜色范围的长度调整容差，增加容差范围
         const rangeLength = Math.sqrt(startToEndLengthSquared);
-        const dynamicTolerance = Math.max(20, Math.min(50, rangeLength * 0.1));
+        const dynamicTolerance = Math.max(40, Math.min(100, rangeLength * 0.2));
         
         return distance <= dynamicTolerance;
     }
