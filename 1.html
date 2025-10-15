@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>双滑块颜色渐变选择器</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+        .container {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            text-align: center;
+            width: 360px;
+            max-width: 90%;
+        }
+        h1 {
+            margin: 0 0 20px;
+            color: #333;
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+        .color-inputs {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .color-input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        input[type="color"] {
+            width: 48px;
+            height: 36px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            cursor: pointer;
+            padding: 2px;
+            background: white;
+        }
+        label {
+            font-size: 0.875rem;
+            color: #555;
+        }
+        .range-wrapper {
+            position: relative;
+            width: 100%;
+            height: 36px;
+            margin-bottom: 24px;
+        }
+        .gradient-track {
+            position: absolute;
+            width: calc(100% - 24px);
+            height: 8px;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-radius: 4px;
+            background: linear-gradient(to right, #ff0000, #0000ff);
+        }
+        .range-slider {
+            position: absolute;
+            width: calc(100% - 24px);
+            left: 12px;
+            height: 100%;
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            outline: none;
+            z-index: 2;
+            pointer-events: none;
+            margin: 0;
+        }
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #4a4a4a;
+            cursor: pointer;
+            z-index: 3;
+            pointer-events: auto;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .color-preview {
+            width: 100%;
+            height: 48px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            border: 1px solid #e0e0e0;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #f0f0f0;
+            color: #333;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        button:hover {
+            background: #e0e0e0;
+        }
+        
+        /* 图片上传区域样式 */
+        .image-upload-section {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+        }
+        
+        .upload-btn:hover {
+            background: #0056b3;
+        }
+        
+        .restore-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.875rem;
+            transition: background 0.2s;
+            margin-left: 10px;
+        }
+        
+        .restore-btn:hover {
+            background: #545b62;
+        }
+        
+        /* Canvas容器样式 */
+        .canvas-container {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        #imageCanvas {
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            max-width: 100%;
+            height: auto;
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <table border="1" cellpadding="8" cellspacing="0" id="colorTable" style="margin-bottom: 20px; border-collapse: collapse; width: 100%; max-width: 800px;">
+        <thead>
+            <tr style="background-color: #f5f5f5;">
+                <th style="border: 1px solid #ddd; padding: 8px;">头部颜色</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">尾部颜色</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">混合颜色</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">混合比例</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">操作</th>
+            </tr>
+        </thead>
+        <tbody id="colorTableBody">
+        </tbody>
+    </table>
+    <div class="container">
+        <div class="color-inputs">
+            <div class="color-input-group">
+                <input type="color" id="color1" value="#ff0000">
+                <label for="color1">左侧颜色</label>
+            </div>
+            <div class="color-input-group">
+                <input type="color" id="color2" value="#0000ff">
+                <label for="color2">右侧颜色</label>
+            </div>
+        </div>
+        
+        <div class="range-wrapper" id="rangeContainer">
+            <div class="gradient-track" id="gradientTrack"></div>
+            <input type="range" id="slider1" class="range-slider" min="0" max="100" value="0">
+            <input type="range" id="slider2" class="range-slider" min="0" max="100" value="100">
+        </div>
+        
+        <div class="color-preview" id="colorPreview"></div>
+        
+        <div class="action-buttons">
+            <input type="color" id="mixColorInput" value="#ffffff">
+            <button id="mixButton">混合</button>
+            <button id="undoButton">撤销</button>
+            <button id="confirmButton">确定</button>
+        </div>
+        
+        <!-- 图片上传区域 -->
+        <div class="image-upload-section">
+            <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+            <button id="uploadButton" class="upload-btn">上传图片</button>
+            <button id="restoreButton" class="restore-btn" style="display: none;">恢复原图</button>
+        </div>
+        
+        <!-- Canvas区域 -->
+        <div class="canvas-container">
+            <canvas id="imageCanvas" width="400" height="300"></canvas>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const color1 = document.getElementById('color1');
+            const color2 = document.getElementById('color2');
+            const slider1 = document.getElementById('slider1');
+            const slider2 = document.getElementById('slider2');
+            const gradientTrack = document.getElementById('gradientTrack');
+            const colorPreview = document.getElementById('colorPreview');
+            const rangeContainer = document.getElementById('rangeContainer');
+            const mixColorInput = document.getElementById('mixColorInput');
+            const mixButton = document.getElementById('mixButton');
+            const undoButton = document.getElementById('undoButton');
+            const confirmButton = document.getElementById('confirmButton');
+            const colorTableBody = document.getElementById('colorTableBody');
+            const imageUpload = document.getElementById('imageUpload');
+            const uploadButton = document.getElementById('uploadButton');
+            const restoreButton = document.getElementById('restoreButton');
+            const imageCanvas = document.getElementById('imageCanvas');
+            const ctx = imageCanvas.getContext('2d');
+            
+            let originalColor = '';
+            let editingRowIndex = -1; // 用于跟踪正在编辑的行
+            let originalImageData = null; // 保存原始图片数据
+            let colorChangeHistory = []; // 保存每次颜色变化的记录
+
+            function updateGradient() {
+                gradientTrack.style.background = `linear-gradient(to right, ${color1.value}, ${color2.value})`;
+            }
+
+            function enforceSliderOrder() {
+                if (+slider1.value > +slider2.value) {
+                    [slider1.value, slider2.value] = [slider2.value, slider1.value];
+                }
+            }
+
+            function hexToRgb(hex) {
+                hex = hex.replace(/^#/, '');
+                const bigint = parseInt(hex, 16);
+                return {
+                    r: (bigint >> 16) & 255,
+                    g: (bigint >> 8) & 255,
+                    b: bigint & 255
+                };
+            }
+
+            function rgbToHex(r, g, b) {
+                return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+            }
+
+            function mixColors(color1, color2) {
+                // 简单的50/50混合
+                const rgb1 = hexToRgb(color1);
+                const rgb2 = hexToRgb(color2);
+                
+                const r = Math.round((rgb1.r + rgb2.r) / 2);
+                const g = Math.round((rgb1.g + rgb2.g) / 2);
+                const b = Math.round((rgb1.b + rgb2.b) / 2);
+                
+                return rgbToHex(r, g, b);
+            }
+
+            function getGradientColor(color1, color2, position) {
+                const rgb1 = hexToRgb(color1);
+                const rgb2 = hexToRgb(color2);
+                const r = Math.round(rgb1.r + (rgb2.r - rgb1.r) * position);
+                const g = Math.round(rgb1.g + (rgb2.g - rgb1.g) * position);
+                const b = Math.round(rgb1.b + (rgb2.b - rgb1.b) * position);
+                return rgbToHex(r, g, b);
+            }
+
+            function updateColorPreview() {
+                const midPosition = (+slider1.value + +slider2.value) / 200;
+                colorPreview.style.backgroundColor = getGradientColor(color1.value, color2.value, midPosition);
+            }
+
+            function showHoverColor(e) {
+                const rect = rangeContainer.getBoundingClientRect();
+                const pos = Math.max(0, Math.min(1, (e.clientX - rect.left - 12) / (rect.width - 24)));
+                colorPreview.style.backgroundColor = getGradientColor(color1.value, color2.value, pos);
+            }
+
+            [color1, color2].forEach(el => el.addEventListener('input', () => {
+                updateGradient();
+                updateColorPreview();
+            }));
+
+            [slider1, slider2].forEach(el => el.addEventListener('input', () => {
+                enforceSliderOrder();
+                updateColorPreview();
+            }));
+
+            mixButton.addEventListener('click', function() {
+                // 保存当前预览颜色作为原始颜色
+                originalColor = colorPreview.style.backgroundColor;
+                
+                // 获取mixColorInput的值
+                const mixColor = mixColorInput.value;
+                
+                if (mixColor) {
+                    // 获取当前预览颜色
+                    let currentColor = colorPreview.style.backgroundColor;
+                    
+                    // 如果backgroundColor为空，说明是初始状态，需要计算当前滑块位置的颜色
+                    if (!currentColor) {
+                        const midPosition = (+slider1.value + +slider2.value) / 200;
+                        currentColor = getGradientColor(color1.value, color2.value, midPosition);
+                    } else {
+                        // 提取RGB值并转换回HEX
+                        const rgb = currentColor.match(new RegExp("\\d+", "g"));
+                        if (rgb) {
+                            currentColor = rgbToHex(parseInt(rgb[0]), parseInt(rgb[1]), parseInt(rgb[2]));
+                        }
+                    }
+                    
+                    // 混合颜色
+                    const mixedColor = mixColors(currentColor, mixColor);
+                    
+                    // 更新颜色预览
+                    colorPreview.style.backgroundColor = mixedColor;
+                }
+            });
+
+            undoButton.addEventListener('click', function() {
+                if (originalColor) {
+                    // 恢复原始颜色
+                    colorPreview.style.backgroundColor = originalColor;
+                }
+            });
+
+            // 确定按钮事件监听器
+            confirmButton.addEventListener('click', function() {
+                // 检查canvas是否有图片
+                if (isCanvasEmpty()) {
+                    alert('请先上传图片到canvas！');
+                    return;
+                }
+                
+                const headColor = color1.value;
+                const tailColor = color2.value;
+                const mixedColor = mixColorInput.value;
+                
+                // 从canvas中找到从头部颜色到尾部颜色范围内的所有颜色
+                const colorsInRange = findColorsInRange(headColor, tailColor);
+                
+                if (colorsInRange.length === 0) {
+                    alert('在图片中未找到指定颜色范围内的颜色！');
+                    return;
+                }
+                
+                // 对这些颜色进行混合
+                const mixedResult = mixColorsInRange(colorsInRange, mixedColor);
+                
+                // 将混合后的颜色更新到canvas上
+                const result = updateCanvasWithMixedColors(colorsInRange, mixedResult);
+                
+                // 显示处理结果
+                displayProcessingResult(result.replacedPixels);
+                
+                const ratio = Math.round((+slider1.value + +slider2.value) / 2) + '%';
+                
+                if (editingRowIndex >= 0) {
+                    // 编辑模式：更新现有行
+                    updateTableRow(editingRowIndex, headColor, tailColor, mixedColor, ratio, result.changeId);
+                    editingRowIndex = -1; // 重置编辑状态
+                    confirmButton.textContent = '确定';
+                } else {
+                    // 添加新行
+                    addTableRow(headColor, tailColor, mixedColor, ratio, result.changeId);
+                }
+            });
+
+            rangeContainer.addEventListener('mousemove', showHoverColor);
+            rangeContainer.addEventListener('mouseleave', updateColorPreview);
+            
+            // 点击滑动条确认颜色
+            rangeContainer.addEventListener('click', (e) => {
+                const rect = rangeContainer.getBoundingClientRect();
+                const pos = Math.max(0, Math.min(1, (e.clientX - rect.left - 12) / (rect.width - 24)));
+                const confirmedColor = getGradientColor(color1.value, color2.value, pos);
+                colorPreview.style.backgroundColor = confirmedColor;
+            });
+
+            // 添加表格行
+            function addTableRow(headColor, tailColor, mixedColor, ratio, changeId) {
+                const row = document.createElement('tr');
+                row.setAttribute('data-change-id', changeId); // 存储变化ID
+                row.innerHTML = `
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background-color: ${headColor}; border: 1px solid #ccc; border-radius: 3px;"></div>
+                            <span>${headColor.toUpperCase()}</span>
+                        </div>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background-color: ${tailColor}; border: 1px solid #ccc; border-radius: 3px;"></div>
+                            <span>${tailColor.toUpperCase()}</span>
+                        </div>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="width: 20px; height: 20px; background-color: ${mixedColor}; border: 1px solid #ccc; border-radius: 3px;"></div>
+                            <span>${mixedColor}</span>
+                        </div>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${ratio}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <button onclick="editRow(${colorTableBody.children.length})" style="margin-right: 5px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">编辑</button>
+                        <button onclick="deleteRow(${colorTableBody.children.length})" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">删除</button>
+                    </td>
+                `;
+                colorTableBody.appendChild(row);
+            }
+
+            // 更新表格行
+            function updateTableRow(index, headColor, tailColor, mixedColor, ratio, changeId) {
+                const row = colorTableBody.children[index];
+                if (row) {
+                    row.setAttribute('data-change-id', changeId); // 更新变化ID
+                    row.innerHTML = `
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 20px; height: 20px; background-color: ${headColor}; border: 1px solid #ccc; border-radius: 3px;"></div>
+                                <span>${headColor.toUpperCase()}</span>
+                            </div>
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 20px; height: 20px; background-color: ${tailColor}; border: 1px solid #ccc; border-radius: 3px;"></div>
+                                <span>${tailColor.toUpperCase()}</span>
+                            </div>
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <div style="width: 20px; height: 20px; background-color: ${mixedColor}; border: 1px solid #ccc; border-radius: 3px;"></div>
+                                <span>${mixedColor}</span>
+                            </div>
+                        </td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">${ratio}</td>
+                        <td style="border: 1px solid #ddd; padding: 8px;">
+                            <button onclick="editRow(${index})" style="margin-right: 5px; padding: 4px 8px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">编辑</button>
+                            <button onclick="deleteRow(${index})" style="padding: 4px 8px; background: #dc3545; color: white; border: none; border-radius: 3px; cursor: pointer;">删除</button>
+                        </td>
+                    `;
+                }
+            }
+
+            // 编辑行函数
+            window.editRow = function(index) {
+                const row = colorTableBody.children[index];
+                if (row) {
+                    const cells = row.children;
+                    const headColor = cells[0].querySelector('span').textContent.toLowerCase();
+                    const tailColor = cells[1].querySelector('span').textContent.toLowerCase();
+                    const mixedColor = cells[2].querySelector('span').textContent;
+                    const ratio = cells[3].textContent;
+                    
+                    // 设置颜色选择器的值
+                    color1.value = headColor;
+                    color2.value = tailColor;
+                    mixColorInput.value = mixedColor; // 设置底部混合颜色选择器
+                    
+                    // 根据比例设置滑块位置
+                    const ratioValue = parseInt(ratio);
+                    slider1.value = Math.max(0, ratioValue - 10);
+                    slider2.value = Math.min(100, ratioValue + 10);
+                    
+                    // 更新渐变和预览
+                    updateGradient();
+                    updateColorPreview();
+                    
+                    // 设置编辑状态
+                    editingRowIndex = index;
+                    confirmButton.textContent = '更新';
+                }
+            };
+
+            // 删除行函数
+            window.deleteRow = function(index) {
+                if (confirm('确定要删除这一行吗？删除后对应的canvas颜色也会被还原。')) {
+                    const row = colorTableBody.children[index];
+                    if (row) {
+                        // 获取这一行对应的变化ID
+                        const changeId = row.getAttribute('data-change-id');
+                        
+                        // 还原canvas中对应的颜色
+                        if (changeId) {
+                            restoreCanvasColors(changeId);
+                        }
+                        
+                        // 删除表格行
+                        row.remove();
+                        
+                        // 重新设置所有行的onclick事件，因为索引会改变
+                        updateRowIndices();
+                    }
+                }
+            };
+
+            // 还原canvas中指定变化ID的颜色
+            function restoreCanvasColors(changeId) {
+                // 找到对应的变化记录
+                const changeRecord = colorChangeHistory.find(record => record.id == changeId);
+                if (!changeRecord) {
+                    console.log('未找到对应的颜色变化记录');
+                    return;
+                }
+                
+                // 获取当前canvas的图像数据
+                const imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                const data = imageData.data;
+                
+                // 还原每个像素的原始颜色
+                changeRecord.changes.forEach(change => {
+                    const index = change.index;
+                    data[index] = change.originalRgb.r;     // Red
+                    data[index + 1] = change.originalRgb.g; // Green
+                    data[index + 2] = change.originalRgb.b; // Blue
+                    // Alpha保持不变
+                });
+                
+                // 将还原后的图像数据放回canvas
+                ctx.putImageData(imageData, 0, 0);
+                
+                // 从历史记录中移除这个变化
+                const index = colorChangeHistory.findIndex(record => record.id == changeId);
+                if (index > -1) {
+                    colorChangeHistory.splice(index, 1);
+                }
+                
+                // 显示还原成功提示
+                let resultDiv = document.getElementById('processingResult');
+                if (!resultDiv) {
+                    resultDiv = document.createElement('div');
+                    resultDiv.id = 'processingResult';
+                    resultDiv.style.cssText = `
+                        margin: 10px 0;
+                        padding: 10px;
+                        background: #f8d7da;
+                        color: #721c24;
+                        border-radius: 6px;
+                        border: 1px solid #f5c6cb;
+                        text-align: center;
+                        font-size: 0.875rem;
+                    `;
+                    document.querySelector('.container').appendChild(resultDiv);
+                }
+                
+                resultDiv.innerHTML = `🔄 已还原 ${changeRecord.changes.length} 个像素的原始颜色`;
+                
+                // 3秒后自动隐藏提示
+                setTimeout(() => {
+                    if (resultDiv) {
+                        resultDiv.remove();
+                    }
+                }, 3000);
+            }
+
+            // 更新行索引
+            function updateRowIndices() {
+                const rows = colorTableBody.children;
+                for (let i = 0; i < rows.length; i++) {
+                    const buttons = rows[i].querySelectorAll('button');
+                    buttons[0].setAttribute('onclick', `editRow(${i})`);
+                    buttons[1].setAttribute('onclick', `deleteRow(${i})`);
+                }
+            }
+
+            // 检查canvas是否为空
+            function isCanvasEmpty() {
+                const imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                const data = imageData.data;
+                // 检查是否所有像素都是透明的或背景色
+                for (let i = 3; i < data.length; i += 4) {
+                    if (data[i] > 0) { // alpha通道大于0表示有内容
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            // 在canvas中找到从头部颜色到尾部颜色范围内的所有颜色
+            function findColorsInRange(headColor, tailColor) {
+                const imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                const data = imageData.data;
+                const colorsInRange = [];
+                const colorMap = new Map(); // 用于去重
+                
+                const headRgb = hexToRgb(headColor);
+                const tailRgb = hexToRgb(tailColor);
+                
+                // 遍历canvas中的所有像素
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const a = data[i + 3];
+                    
+                    if (a > 0) { // 只处理非透明像素
+                        const pixelRgb = { r, g, b };
+                        const pixelHex = rgbToHex(r, g, b);
+                        
+                        // 检查这个像素颜色是否在头部颜色到尾部颜色的范围内
+                        if (isColorInRange(pixelRgb, headRgb, tailRgb)) {
+                            if (!colorMap.has(pixelHex)) {
+                                colorMap.set(pixelHex, {
+                                    hex: pixelHex,
+                                    rgb: pixelRgb,
+                                    positions: []
+                                });
+                            }
+                            // 记录这个颜色的像素位置
+                            const pixelIndex = i / 4;
+                            const x = pixelIndex % imageCanvas.width;
+                            const y = Math.floor(pixelIndex / imageCanvas.width);
+                            colorMap.get(pixelHex).positions.push({ x, y, index: i });
+                        }
+                    }
+                }
+                
+                // 转换为数组
+                colorMap.forEach(color => {
+                    colorsInRange.push(color);
+                });
+                
+                return colorsInRange;
+            }
+
+            // 检查颜色是否在指定范围内
+            function isColorInRange(pixelRgb, headRgb, tailRgb) {
+                // 计算颜色在RGB空间中的位置
+                const headToTail = {
+                    r: tailRgb.r - headRgb.r,
+                    g: tailRgb.g - headRgb.g,
+                    b: tailRgb.b - headRgb.b
+                };
+                
+                const pixelToHead = {
+                    r: pixelRgb.r - headRgb.r,
+                    g: pixelRgb.g - headRgb.g,
+                    b: pixelRgb.b - headRgb.b
+                };
+                
+                // 计算点积来判断是否在范围内
+                const dotProduct = pixelToHead.r * headToTail.r + pixelToHead.g * headToTail.g + pixelToHead.b * headToTail.b;
+                const headToTailLengthSquared = headToTail.r * headToTail.r + headToTail.g * headToTail.g + headToTail.b * headToTail.b;
+                
+                if (headToTailLengthSquared === 0) {
+                    // 如果头部和尾部颜色相同，直接比较
+                    return pixelRgb.r === headRgb.r && pixelRgb.g === headRgb.g && pixelRgb.b === headRgb.b;
+                }
+                
+                // 计算投影比例
+                const projectionRatio = dotProduct / headToTailLengthSquared;
+                
+                // 检查是否在0到1之间（在头部和尾部之间）
+                if (projectionRatio >= 0 && projectionRatio <= 1) {
+                    // 计算到直线的距离
+                    const projectedPoint = {
+                        r: headRgb.r + projectionRatio * headToTail.r,
+                        g: headRgb.g + projectionRatio * headToTail.g,
+                        b: headRgb.b + projectionRatio * headToTail.b
+                    };
+                    
+                    const distance = Math.sqrt(
+                        Math.pow(pixelRgb.r - projectedPoint.r, 2) +
+                        Math.pow(pixelRgb.g - projectedPoint.g, 2) +
+                        Math.pow(pixelRgb.b - projectedPoint.b, 2)
+                    );
+                    
+                    // 设置一个容差范围（可以根据需要调整）
+                    const tolerance = 30;
+                    return distance <= tolerance;
+                }
+                
+                return false;
+            }
+
+            // 从canvas中提取颜色信息
+            function extractCanvasColors() {
+                const imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                const data = imageData.data;
+                const colors = [];
+                
+                // 采样canvas中的颜色（每10个像素采样一次）
+                for (let i = 0; i < data.length; i += 40) { // 每10个像素采样一次
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const a = data[i + 3];
+                    
+                    if (a > 0) { // 只处理非透明像素
+                        const hex = rgbToHex(r, g, b);
+                        colors.push({
+                            rgb: { r, g, b },
+                            hex: hex
+                        });
+                    }
+                }
+                return colors;
+            }
+
+            // 计算两个颜色之间的相似度
+            function calculateColorSimilarity(color1, color2) {
+                const rDiff = Math.abs(color1.r - color2.r);
+                const gDiff = Math.abs(color1.g - color2.g);
+                const bDiff = Math.abs(color1.b - color2.b);
+                
+                // 使用欧几里得距离计算相似度
+                const distance = Math.sqrt(rDiff * rDiff + gDiff * gDiff + bDiff * bDiff);
+                const maxDistance = Math.sqrt(255 * 255 * 3); // 最大可能距离
+                
+                return 1 - (distance / maxDistance); // 返回0-1之间的相似度值
+            }
+
+            // 对找到的颜色进行混合
+            function mixColorsInRange(colorsInRange, mixColor) {
+                const mixRgb = hexToRgb(mixColor);
+                const mixedColors = [];
+                
+                colorsInRange.forEach(color => {
+                    // 将每个找到的颜色与混合颜色进行混合
+                    const mixedR = Math.round((color.rgb.r + mixRgb.r) / 2);
+                    const mixedG = Math.round((color.rgb.g + mixRgb.g) / 2);
+                    const mixedB = Math.round((color.rgb.b + mixRgb.b) / 2);
+                    
+                    mixedColors.push({
+                        originalHex: color.hex,
+                        originalRgb: color.rgb,
+                        mixedRgb: { r: mixedR, g: mixedG, b: mixedB },
+                        mixedHex: rgbToHex(mixedR, mixedG, mixedB),
+                        positions: color.positions
+                    });
+                });
+                
+                return mixedColors;
+            }
+
+            // 将混合后的颜色更新到canvas上
+            function updateCanvasWithMixedColors(colorsInRange, mixedResult) {
+                const imageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                const data = imageData.data;
+                let replacedPixels = 0;
+                
+                // 记录这次颜色变化的历史
+                const changeRecord = {
+                    id: Date.now(), // 使用时间戳作为唯一ID
+                    changes: []
+                };
+                
+                // 为每个混合颜色更新对应的像素
+                mixedResult.forEach(mixedColor => {
+                    mixedColor.positions.forEach(position => {
+                        const index = position.index;
+                        
+                        // 记录原始颜色
+                        const originalR = data[index];
+                        const originalG = data[index + 1];
+                        const originalB = data[index + 2];
+                        
+                        // 更新像素颜色
+                        data[index] = mixedColor.mixedRgb.r;     // Red
+                        data[index + 1] = mixedColor.mixedRgb.g; // Green
+                        data[index + 2] = mixedColor.mixedRgb.b; // Blue
+                        // Alpha保持不变
+                        
+                        // 记录变化
+                        changeRecord.changes.push({
+                            index: index,
+                            originalRgb: { r: originalR, g: originalG, b: originalB },
+                            newRgb: mixedColor.mixedRgb
+                        });
+                        
+                        replacedPixels++;
+                    });
+                });
+                
+                // 将修改后的图像数据放回canvas
+                ctx.putImageData(imageData, 0, 0);
+                
+                // 保存变化记录
+                colorChangeHistory.push(changeRecord);
+                
+                return { replacedPixels, changeId: changeRecord.id };
+            }
+
+            // 显示处理结果信息
+            function displayProcessingResult(replacedCount) {
+                // 移除之前的结果展示区域
+                const existingResult = document.getElementById('comparisonResult');
+                if (existingResult) {
+                    existingResult.remove();
+                }
+                
+                // 创建简单的处理结果提示
+                let resultDiv = document.getElementById('processingResult');
+                if (!resultDiv) {
+                    resultDiv = document.createElement('div');
+                    resultDiv.id = 'processingResult';
+                    resultDiv.style.cssText = `
+                        margin: 10px 0;
+                        padding: 10px;
+                        background: #d4edda;
+                        color: #155724;
+                        border-radius: 6px;
+                        border: 1px solid #c3e6cb;
+                        text-align: center;
+                        font-size: 0.875rem;
+                    `;
+                    document.querySelector('.container').appendChild(resultDiv);
+                }
+                
+                resultDiv.innerHTML = `✅ 已成功替换 ${replacedCount} 个像素的颜色到canvas图片上`;
+                
+                // 3秒后自动隐藏提示
+                setTimeout(() => {
+                    if (resultDiv) {
+                        resultDiv.remove();
+                    }
+                }, 3000);
+            }
+
+            // 图片上传功能
+            uploadButton.addEventListener('click', function() {
+                imageUpload.click();
+            });
+
+            imageUpload.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const img = new Image();
+                        img.onload = function() {
+                            // 清空canvas
+                            ctx.clearRect(0, 0, imageCanvas.width, imageCanvas.height);
+                            
+                            // 计算图片缩放比例，保持宽高比
+                            const canvasAspect = imageCanvas.width / imageCanvas.height;
+                            const imageAspect = img.width / img.height;
+                            
+                            let drawWidth, drawHeight, offsetX, offsetY;
+                            
+                            if (imageAspect > canvasAspect) {
+                                // 图片更宽，以宽度为准
+                                drawWidth = imageCanvas.width;
+                                drawHeight = imageCanvas.width / imageAspect;
+                                offsetX = 0;
+                                offsetY = (imageCanvas.height - drawHeight) / 2;
+                            } else {
+                                // 图片更高，以高度为准
+                                drawHeight = imageCanvas.height;
+                                drawWidth = imageCanvas.height * imageAspect;
+                                offsetX = (imageCanvas.width - drawWidth) / 2;
+                                offsetY = 0;
+                            }
+                            
+                            // 绘制图片到canvas
+                            ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+                            
+                            // 保存原始图片数据
+                            originalImageData = ctx.getImageData(0, 0, imageCanvas.width, imageCanvas.height);
+                            
+                            // 显示恢复按钮
+                            restoreButton.style.display = 'inline-block';
+                        };
+                        img.src = event.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // 恢复原始图片功能
+            restoreButton.addEventListener('click', function() {
+                if (originalImageData) {
+                    ctx.putImageData(originalImageData, 0, 0);
+                    
+                    // 显示恢复成功提示
+                    let resultDiv = document.getElementById('processingResult');
+                    if (!resultDiv) {
+                        resultDiv = document.createElement('div');
+                        resultDiv.id = 'processingResult';
+                        resultDiv.style.cssText = `
+                            margin: 10px 0;
+                            padding: 10px;
+                            background: #d1ecf1;
+                            color: #0c5460;
+                            border-radius: 6px;
+                            border: 1px solid #bee5eb;
+                            text-align: center;
+                            font-size: 0.875rem;
+                        `;
+                        document.querySelector('.container').appendChild(resultDiv);
+                    }
+                    
+                    resultDiv.innerHTML = `🔄 已恢复原始图片`;
+                    
+                    // 3秒后自动隐藏提示
+                    setTimeout(() => {
+                        if (resultDiv) {
+                            resultDiv.remove();
+                        }
+                    }, 3000);
+                }
+            });
+
+            updateGradient();
+            updateColorPreview();
+        });
+    </script>
+</body>
+</html>

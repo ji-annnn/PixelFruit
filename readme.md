@@ -16,6 +16,8 @@
 
 - 索尼（Sony）系列相机 ARW 格式
 - 富士（Fuji）系列相机 RAF 格式
+- 尼康 (Nikon) 系列的 NEF 格式 (有点小问题)
+- 
 更多相机品牌支持正在开发中，敬请期待！
 
 ## 使用方法
@@ -55,7 +57,6 @@
 - **ImageProcessor.js** - Web Worker包装器，管理任务队列、缓存和Worker通信
 - **PerformanceOptimizer.js** - 性能优化模块，整合缓存、Canvas优化和渐进式渲染
 - **SliderManager.js** - 滑块控件管理模块，处理UI交互
-- **Correction.js** - 图像校正模块，提供几何校正等功能
 
 ### 其他文件
 - **compileLibraw.sh** - 编译libraw库的shell脚本

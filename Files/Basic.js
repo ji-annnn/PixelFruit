@@ -70,18 +70,8 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
         // 清空画布
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         
-        // 尝试从Correction.js导入校正模块
-        try {
-            const { correctionModule } = await import('./Correction.js');
-            // 使用校正模块应用透视变换
-            correctionModule.applyPerspectiveTransform(imageData, ctx, canvas);
-        } catch (importError) {
-            // 如果导入失败，回退到原始的透视变换实现
-            console.warn('无法导入Correction.js模块，使用回退的透视变换实现:', importError);
-            
-            // 回退实现：直接绘制图像
-            ctx.putImageData(imageData, 0, 0);
-        }
+        // 直接绘制图像
+        ctx.putImageData(imageData, 0, 0);
     } catch (error) {
         console.error('从缓存更新图像时出错:', error);
     }
