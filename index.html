@@ -219,18 +219,30 @@
                             
                         </div>
                         
-                        <!-- 混合颜色设置 -->
-                        <div class="mix-color-settings">
-                            <h4>混合颜色设置</h4>
-                            <div class="mix-color-input">
-                                <input type="color" id="mixColorInput" value="#ffffff">
-                                <label for="mixColorInput">混合颜色</label>
+                        <!-- 目标颜色范围设置 -->
+                        <div class="target-color-settings">
+                            <h4>目标颜色范围</h4>
+                            <div class="color-inputs">
+                                <div class="color-input-group">
+                                    <input type="color" id="target-color-start" value="#00ff00">
+                                    <label for="target-color-start">目标起始颜色</label>
+                                </div>
+                                <div class="color-input-group">
+                                    <input type="color" id="target-color-end" value="#ffff00">
+                                    <label for="target-color-end">目标结束颜色</label>
+                                </div>
                             </div>
+                            
+                            <!-- 目标颜色渐变轨道 -->
+                            <div class="range-wrapper" id="targetColorRangeContainer">
+                                <div class="gradient-track" id="targetColorGradientTrack"></div>
+                            </div>
+                            
                             <div class="mix-ratio">
-                                <label for="mixRatio">混合比例</label>
+                                <label for="mixRatio">替换强度</label>
                                 <div class="slider-wrapper">
-                                    <input type="range" id="mixRatio" min="0" max="100" step="1" value="50">
-                                    <span class="value-display" id="mixRatio-value">50%</span>
+                                    <input type="range" id="mixRatio" min="0" max="100" step="1" value="100">
+                                    <span class="value-display" id="mixRatio-value">100%</span>
                                 </div>
                             </div>
                         </div>
@@ -258,8 +270,9 @@
                                         <tr>
                                             <th>起始颜色</th>
                                             <th>结束颜色</th>
-                                            <th>混合颜色</th>
-                                            <th>混合比例</th>
+                                            <th>目标起始颜色</th>
+                                            <th>目标结束颜色</th>
+                                            <th>替换强度</th>
                                             <th>替换像素</th>
                                             <th>操作</th>
                                         </tr>
@@ -1041,7 +1054,10 @@
             colorSlider2: document.getElementById('colorSlider2'),
             colorGradientTrack: document.getElementById('colorGradientTrack'),
             colorRangeContainer: document.getElementById('colorRangeContainer'),
-            mixColorInput: document.getElementById('mixColorInput'),
+            targetColorStart: document.getElementById('target-color-start'),
+            targetColorEnd: document.getElementById('target-color-end'),
+            targetColorGradientTrack: document.getElementById('targetColorGradientTrack'),
+            targetColorRangeContainer: document.getElementById('targetColorRangeContainer'),
             mixRatio: document.getElementById('mixRatio'),
             mixRatioValue: document.getElementById('mixRatio-value'),
             previewColorReplace: document.getElementById('previewColorReplace'),

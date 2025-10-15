@@ -21,7 +21,10 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         colorSlider2,
         colorGradientTrack,
         colorRangeContainer,
-        mixColorInput,
+        targetColorStart,
+        targetColorEnd,
+        targetColorGradientTrack,
+        targetColorRangeContainer,
         mixRatio,
         mixRatioValue,
         previewColorReplace,
@@ -36,11 +39,19 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
 
     // 初始化渐变轨道
     updateGradientTrack();
+    updateTargetGradientTrack();
 
     // 颜色范围选择器事件监听
     [colorRangeStart, colorRangeEnd].forEach(el => {
         el.addEventListener('input', () => {
             updateGradientTrack();
+        });
+    });
+
+    // 目标颜色范围选择器事件监听
+    [targetColorStart, targetColorEnd].forEach(el => {
+        el.addEventListener('input', () => {
+            updateTargetGradientTrack();
         });
     });
 
@@ -84,6 +95,13 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
     }
 
     /**
+     * 更新目标渐变轨道
+     */
+    function updateTargetGradientTrack() {
+        targetColorGradientTrack.style.background = `linear-gradient(to right, ${targetColorStart.value}, ${targetColorEnd.value})`;
+    }
+
+    /**
      * 强制滑块顺序
      */
     function enforceSliderOrder() {
@@ -104,7 +122,8 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
 
         const startColor = colorRangeStart.value;
         const endColor = colorRangeEnd.value;
-        const mixColor = mixColorInput.value;
+        const targetStartColor = targetColorStart.value;
+        const targetEndColor = targetColorEnd.value;
         const mixRatioValue = parseInt(mixRatio.value) / 100;
 
         // 找到颜色范围内的像素
@@ -124,7 +143,7 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         );
 
         // 应用颜色替换预览
-        const replacedPixels = applyColorReplaceToImageData(previewImageData, colorsInRange, mixColor, mixRatioValue);
+        const replacedPixels = applyColorReplaceToImageData(previewImageData, colorsInRange, startColor, endColor, targetStartColor, targetEndColor, mixRatioValue);
         
         // 显示预览
         ctx.putImageData(previewImageData, 0, 0);
@@ -142,6 +161,8 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
      * 应用颜色替换效果
      */
     function applyColorReplaceEffect() {
+        console.log('开始应用颜色替换...');
+        
         if (!imageCanvas || !ctx) {
             alert('请先上传图片！');
             return;
@@ -149,11 +170,21 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
 
         const startColor = colorRangeStart.value;
         const endColor = colorRangeEnd.value;
-        const mixColor = mixColorInput.value;
+        const targetStartColor = targetColorStart.value;
+        const targetEndColor = targetColorEnd.value;
         const mixRatioValue = parseInt(mixRatio.value) / 100;
+
+        console.log('颜色设置:', {
+            startColor,
+            endColor,
+            targetStartColor,
+            targetEndColor,
+            mixRatioValue
+        });
 
         // 找到颜色范围内的像素
         const colorsInRange = findColorsInRange(startColor, endColor);
+        console.log('找到的颜色数量:', colorsInRange.length);
         
         if (colorsInRange.length === 0) {
             alert('在图片中未找到指定颜色范围内的颜色！');
@@ -171,17 +202,20 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         );
 
         // 应用颜色替换
-        const replacedPixels = applyColorReplaceToImageData(imageData, colorsInRange, mixColor, mixRatioValue);
+        const replacedPixels = applyColorReplaceToImageData(imageData, colorsInRange, startColor, endColor, targetStartColor, targetEndColor, mixRatioValue);
+        console.log('替换的像素数量:', replacedPixels);
         
         // 更新canvas
         ctx.putImageData(imageData, 0, 0);
+        console.log('Canvas已更新');
         
         // 保存到历史记录
         const changeRecord = {
             id: Date.now(),
             startColor,
             endColor,
-            mixColor,
+            targetStartColor,
+            targetEndColor,
             mixRatio: mixRatio.value + '%',
             replacedPixels,
             originalImageData,
@@ -205,10 +239,9 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         // 显示结果
         showReplaceResult(replacedPixels);
         
-        // 触发图像更新回调
-        if (updateImageCallback) {
-            updateImageCallback();
-        }
+        // 注意：不调用updateImageCallback，因为颜色替换是直接修改Canvas的
+        // 调用updateImageCallback会重新处理图像，覆盖颜色替换效果
+        console.log('颜色替换完成，未触发图像更新回调');
     }
 
     /**
@@ -234,10 +267,8 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         // 显示撤销成功信息
         showReplaceResult(0, '已撤销最后一次颜色替换');
         
-        // 触发图像更新回调
-        if (updateImageCallback) {
-            updateImageCallback();
-        }
+        // 注意：不调用updateImageCallback，因为撤销是直接修改Canvas的
+        console.log('颜色替换撤销完成，未触发图像更新回调');
     }
 
     /**
@@ -299,8 +330,14 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
             </td>
             <td>
                 <div class="color-cell">
-                    <div class="color-swatch" style="background-color: ${changeRecord.mixColor}"></div>
-                    <span>${changeRecord.mixColor.toUpperCase()}</span>
+                    <div class="color-swatch" style="background-color: ${changeRecord.targetStartColor}"></div>
+                    <span>${changeRecord.targetStartColor.toUpperCase()}</span>
+                </div>
+            </td>
+            <td>
+                <div class="color-cell">
+                    <div class="color-swatch" style="background-color: ${changeRecord.targetEndColor}"></div>
+                    <span>${changeRecord.targetEndColor.toUpperCase()}</span>
                 </div>
             </td>
             <td>${changeRecord.mixRatio}</td>
@@ -334,12 +371,14 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
             // 设置控件值
             colorRangeStart.value = record.startColor;
             colorRangeEnd.value = record.endColor;
-            mixColorInput.value = record.mixColor;
+            targetColorStart.value = record.targetStartColor;
+            targetColorEnd.value = record.targetEndColor;
             mixRatio.value = parseInt(record.mixRatio);
             mixRatioValue.textContent = record.mixRatio;
             
             // 更新渐变
             updateGradientTrack();
+            updateTargetGradientTrack();
             
             // 设置编辑状态
             currentEditingIndex = index;
@@ -360,13 +399,14 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
             // 更新表格
             updateHistoryTable();
             
-            // 触发图像更新回调
-            if (updateImageCallback) {
-                updateImageCallback();
-            }
+            // 注意：不调用updateImageCallback，因为删除是直接修改Canvas的
+            console.log('颜色替换删除完成，未触发图像更新回调');
         }
     };
 }
+
+// 颜色缓存，避免重复计算
+const colorCache = new Map();
 
 /**
  * 在图像中找到指定颜色范围内的所有颜色
@@ -378,6 +418,14 @@ function findColorsInRange(startColor, endColor) {
     const canvas = document.getElementById('image-canvas');
     const ctx = canvas.getContext('2d');
     
+    // 创建缓存键
+    const cacheKey = `${startColor}-${endColor}-${canvas.width}-${canvas.height}`;
+    
+    // 检查缓存
+    if (colorCache.has(cacheKey)) {
+        return colorCache.get(cacheKey);
+    }
+    
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
     const colorsInRange = [];
@@ -386,7 +434,16 @@ function findColorsInRange(startColor, endColor) {
     const startRgb = hexToRgb(startColor);
     const endRgb = hexToRgb(endColor);
     
-    // 遍历所有像素
+    // 预计算一些值以提高性能
+    const startToEnd = {
+        r: endRgb.r - startRgb.r,
+        g: endRgb.g - startRgb.g,
+        b: endRgb.b - startRgb.b
+    };
+    const startToEndLengthSquared = startToEnd.r * startToEnd.r + startToEnd.g * startToEnd.g + startToEnd.b * startToEnd.b;
+    const isSameColor = startToEndLengthSquared === 0;
+    
+    // 批量处理像素，减少函数调用
     for (let i = 0; i < data.length; i += 4) {
         const r = data[i];
         const g = data[i + 1];
@@ -398,7 +455,7 @@ function findColorsInRange(startColor, endColor) {
             const pixelHex = rgbToHex(r, g, b);
             
             // 检查是否在颜色范围内
-            if (isColorInRange(pixelRgb, startRgb, endRgb)) {
+            if (isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startToEndLengthSquared, isSameColor)) {
                 if (!colorMap.has(pixelHex)) {
                     colorMap.set(pixelHex, {
                         hex: pixelHex,
@@ -421,7 +478,68 @@ function findColorsInRange(startColor, endColor) {
         colorsInRange.push(color);
     });
     
+    // 缓存结果
+    colorCache.set(cacheKey, colorsInRange);
+    
     return colorsInRange;
+}
+
+/**
+ * 优化版颜色范围检查函数
+ * @param {Object} pixelRgb - 像素RGB值
+ * @param {Object} startRgb - 起始RGB值
+ * @param {Object} endRgb - 结束RGB值
+ * @param {Object} startToEnd - 预计算的向量
+ * @param {number} startToEndLengthSquared - 预计算的向量长度平方
+ * @param {boolean} isSameColor - 是否为相同颜色
+ * @returns {boolean} 是否在范围内
+ */
+function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startToEndLengthSquared, isSameColor) {
+    if (isSameColor) {
+        // 如果起始和结束颜色相同，使用欧几里得距离比较
+        const distance = Math.sqrt(
+            Math.pow(pixelRgb.r - startRgb.r, 2) +
+            Math.pow(pixelRgb.g - startRgb.g, 2) +
+            Math.pow(pixelRgb.b - startRgb.b, 2)
+        );
+        return distance <= 30; // 容差
+    }
+    
+    const pixelToStart = {
+        r: pixelRgb.r - startRgb.r,
+        g: pixelRgb.g - startRgb.g,
+        b: pixelRgb.b - startRgb.b
+    };
+    
+    // 计算点积
+    const dotProduct = pixelToStart.r * startToEnd.r + pixelToStart.g * startToEnd.g + pixelToStart.b * startToEnd.b;
+    
+    // 计算投影比例
+    const projectionRatio = dotProduct / startToEndLengthSquared;
+    
+    // 检查是否在0到1之间（在起始和结束之间）
+    if (projectionRatio >= 0 && projectionRatio <= 1) {
+        // 计算到直线的距离
+        const projectedPoint = {
+            r: startRgb.r + projectionRatio * startToEnd.r,
+            g: startRgb.g + projectionRatio * startToEnd.g,
+            b: startRgb.b + projectionRatio * startToEnd.b
+        };
+        
+        const distance = Math.sqrt(
+            Math.pow(pixelRgb.r - projectedPoint.r, 2) +
+            Math.pow(pixelRgb.g - projectedPoint.g, 2) +
+            Math.pow(pixelRgb.b - projectedPoint.b, 2)
+        );
+        
+        // 动态容差：根据颜色范围的长度调整容差
+        const rangeLength = Math.sqrt(startToEndLengthSquared);
+        const dynamicTolerance = Math.max(20, Math.min(50, rangeLength * 0.1));
+        
+        return distance <= dynamicTolerance;
+    }
+    
+    return false;
 }
 
 /**
@@ -450,8 +568,13 @@ function isColorInRange(pixelRgb, startRgb, endRgb) {
     const startToEndLengthSquared = startToEnd.r * startToEnd.r + startToEnd.g * startToEnd.g + startToEnd.b * startToEnd.b;
     
     if (startToEndLengthSquared === 0) {
-        // 如果起始和结束颜色相同，直接比较
-        return pixelRgb.r === startRgb.r && pixelRgb.g === startRgb.g && pixelRgb.b === startRgb.b;
+        // 如果起始和结束颜色相同，使用欧几里得距离比较
+        const distance = Math.sqrt(
+            Math.pow(pixelRgb.r - startRgb.r, 2) +
+            Math.pow(pixelRgb.g - startRgb.g, 2) +
+            Math.pow(pixelRgb.b - startRgb.b, 2)
+        );
+        return distance <= 30; // 容差
     }
     
     // 计算投影比例
@@ -472,9 +595,11 @@ function isColorInRange(pixelRgb, startRgb, endRgb) {
             Math.pow(pixelRgb.b - projectedPoint.b, 2)
         );
         
-        // 设置容差范围
-        const tolerance = 30;
-        return distance <= tolerance;
+        // 动态容差：根据颜色范围的长度调整容差
+        const rangeLength = Math.sqrt(startToEndLengthSquared);
+        const dynamicTolerance = Math.max(20, Math.min(50, rangeLength * 0.1));
+        
+        return distance <= dynamicTolerance;
     }
     
     return false;
@@ -484,32 +609,117 @@ function isColorInRange(pixelRgb, startRgb, endRgb) {
  * 应用颜色替换到图像数据
  * @param {ImageData} imageData - 图像数据
  * @param {Array} colorsInRange - 范围内的颜色
- * @param {string} mixColor - 混合颜色
+ * @param {string} startColor - 起始颜色
+ * @param {string} endColor - 结束颜色
+ * @param {string} targetStartColor - 目标起始颜色
+ * @param {string} targetEndColor - 目标结束颜色
  * @param {number} mixRatio - 混合比例
  * @returns {number} 替换的像素数量
  */
-function applyColorReplaceToImageData(imageData, colorsInRange, mixColor, mixRatio) {
+function applyColorReplaceToImageData(imageData, colorsInRange, startColor, endColor, targetStartColor, targetEndColor, mixRatio) {
+    console.log('开始处理颜色替换...', {
+        colorsInRange: colorsInRange.length,
+        startColor,
+        endColor,
+        targetStartColor,
+        targetEndColor,
+        mixRatio
+    });
+    
     const data = imageData.data;
-    const mixRgb = hexToRgb(mixColor);
+    const startRgb = hexToRgb(startColor);
+    const endRgb = hexToRgb(endColor);
+    const targetStartRgb = hexToRgb(targetStartColor);
+    const targetEndRgb = hexToRgb(targetEndColor);
     let replacedPixels = 0;
     
-    colorsInRange.forEach(color => {
-        const mixedRgb = mixColors(color.rgb, mixRgb, mixRatio);
+    colorsInRange.forEach((color, index) => {
+        // 计算当前颜色在原始颜色范围中的位置比例
+        const positionRatio = calculateColorPosition(color.rgb, startRgb, endRgb);
+        
+        // 根据位置比例计算目标颜色
+        const targetRgb = interpolateColor(targetStartRgb, targetEndRgb, positionRatio);
+        
+        // 应用混合比例
+        const finalRgb = mixColors(color.rgb, targetRgb, mixRatio);
+        
+        if (index < 3) { // 只打印前3个颜色的详细信息
+            console.log(`颜色 ${index + 1}:`, {
+                original: color.hex,
+                positionRatio,
+                target: `rgb(${targetRgb.r}, ${targetRgb.g}, ${targetRgb.b})`,
+                final: `rgb(${finalRgb.r}, ${finalRgb.g}, ${finalRgb.b})`,
+                pixels: color.positions.length
+            });
+        }
         
         color.positions.forEach(position => {
             const index = position.index;
             
             // 更新像素颜色
-            data[index] = mixedRgb.r;     // Red
-            data[index + 1] = mixedRgb.g; // Green
-            data[index + 2] = mixedRgb.b; // Blue
+            data[index] = finalRgb.r;     // Red
+            data[index + 1] = finalRgb.g; // Green
+            data[index + 2] = finalRgb.b; // Blue
             // Alpha保持不变
             
             replacedPixels++;
         });
     });
     
+    console.log('颜色替换完成，总替换像素数:', replacedPixels);
     return replacedPixels;
+}
+
+/**
+ * 计算颜色在颜色范围中的位置比例
+ * @param {Object} pixelRgb - 像素RGB值
+ * @param {Object} startRgb - 起始RGB值
+ * @param {Object} endRgb - 结束RGB值
+ * @returns {number} 位置比例 (0-1)
+ */
+function calculateColorPosition(pixelRgb, startRgb, endRgb) {
+    // 计算起始到结束的向量
+    const startToEnd = {
+        r: endRgb.r - startRgb.r,
+        g: endRgb.g - startRgb.g,
+        b: endRgb.b - startRgb.b
+    };
+    
+    // 计算像素到起始的向量
+    const pixelToStart = {
+        r: pixelRgb.r - startRgb.r,
+        g: pixelRgb.g - startRgb.g,
+        b: pixelRgb.b - startRgb.b
+    };
+    
+    // 计算点积和向量长度的平方
+    const dotProduct = pixelToStart.r * startToEnd.r + pixelToStart.g * startToEnd.g + pixelToStart.b * startToEnd.b;
+    const startToEndLengthSquared = startToEnd.r * startToEnd.r + startToEnd.g * startToEnd.g + startToEnd.b * startToEnd.b;
+    
+    if (startToEndLengthSquared === 0) {
+        return 0; // 如果起始和结束颜色相同
+    }
+    
+    // 计算投影比例
+    const projectionRatio = dotProduct / startToEndLengthSquared;
+    
+    // 限制在0-1范围内
+    return Math.max(0, Math.min(1, projectionRatio));
+}
+
+/**
+ * 在两个颜色之间进行线性插值
+ * @param {Object} color1 - 第一个颜色RGB
+ * @param {Object} color2 - 第二个颜色RGB
+ * @param {number} ratio - 插值比例 (0-1)
+ * @returns {Object} 插值后的RGB颜色
+ */
+function interpolateColor(color1, color2, ratio) {
+    const r = Math.round(color1.r + (color2.r - color1.r) * ratio);
+    const g = Math.round(color1.g + (color2.g - color1.g) * ratio);
+    const b = Math.round(color1.b + (color2.b - color1.b) * ratio);
+    
+    return { r, g, b };
 }
 
 /**
@@ -583,4 +793,11 @@ export function getColorReplaceHistory() {
 export function clearColorReplaceHistory() {
     colorReplaceHistory = [];
     currentEditingIndex = -1;
+}
+
+/**
+ * 清空颜色缓存
+ */
+export function clearColorCache() {
+    colorCache.clear();
 }
