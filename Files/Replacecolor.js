@@ -27,6 +27,8 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         targetColorRangeContainer,
         mixRatio,
         mixRatioValue,
+        colorTolerance,
+        colorToleranceValue,
         previewColorReplace,
         applyColorReplace,
         undoColorReplace,
@@ -65,6 +67,11 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
     // 混合比例滑块事件监听
     mixRatio.addEventListener('input', (e) => {
         mixRatioValue.textContent = e.target.value + '%';
+    });
+
+    // 颜色容差滑块事件监听
+    colorTolerance.addEventListener('input', (e) => {
+        colorToleranceValue.textContent = e.target.value;
     });
 
     // 渐变轨道点击事件
@@ -125,9 +132,10 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         const targetStartColor = targetColorStart.value;
         const targetEndColor = targetColorEnd.value;
         const mixRatioValue = parseInt(mixRatio.value) / 100;
+        const tolerance = parseInt(colorTolerance.value);
 
         // 找到颜色范围内的像素
-        const colorsInRange = findColorsInRange(startColor, endColor);
+        const colorsInRange = findColorsInRange(startColor, endColor, tolerance);
         
         if (colorsInRange.length === 0) {
             alert('在图片中未找到指定颜色范围内的颜色！');
@@ -173,17 +181,19 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         const targetStartColor = targetColorStart.value;
         const targetEndColor = targetColorEnd.value;
         const mixRatioValue = parseInt(mixRatio.value) / 100;
+        const tolerance = parseInt(colorTolerance.value);
 
         console.log('颜色设置:', {
             startColor,
             endColor,
             targetStartColor,
             targetEndColor,
-            mixRatioValue
+            mixRatioValue,
+            tolerance
         });
 
         // 找到颜色范围内的像素
-        const colorsInRange = findColorsInRange(startColor, endColor);
+        const colorsInRange = findColorsInRange(startColor, endColor, tolerance);
         console.log('找到的颜色数量:', colorsInRange.length);
         
         if (colorsInRange.length === 0) {
@@ -217,6 +227,7 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
             targetStartColor,
             targetEndColor,
             mixRatio: mixRatio.value + '%',
+            tolerance: tolerance,
             replacedPixels,
             originalImageData,
             colorsInRange: colorsInRange.map(color => ({
@@ -362,6 +373,7 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
                 </div>
             </td>
             <td>${changeRecord.mixRatio}</td>
+            <td>${changeRecord.tolerance || 60}</td>
             <td>${changeRecord.replacedPixels}</td>
             <td>
                 <div class="history-actions">
@@ -398,6 +410,12 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
             targetColorEnd.value = record.targetEndColor;
             mixRatio.value = parseInt(record.mixRatio);
             mixRatioValue.textContent = record.mixRatio;
+            
+            // 设置容差值（如果历史记录中有的话）
+            if (record.tolerance !== undefined) {
+                colorTolerance.value = record.tolerance;
+                colorToleranceValue.textContent = record.tolerance;
+            }
             
             // 更新渐变
             updateGradientTrack();
@@ -437,14 +455,15 @@ const colorCache = new Map();
  * 在图像中找到指定颜色范围内的所有颜色
  * @param {string} startColor - 起始颜色（十六进制）
  * @param {string} endColor - 结束颜色（十六进制）
+ * @param {number} tolerance - 颜色容差（可选，默认60）
  * @returns {Array} 颜色信息数组
  */
-function findColorsInRange(startColor, endColor) {
+function findColorsInRange(startColor, endColor, tolerance = 60) {
     const canvas = document.getElementById('image-canvas');
     const ctx = canvas.getContext('2d');
     
-    // 创建缓存键
-    const cacheKey = `${startColor}-${endColor}-${canvas.width}-${canvas.height}`;
+    // 创建缓存键（包含容差值）
+    const cacheKey = `${startColor}-${endColor}-${tolerance}-${canvas.width}-${canvas.height}`;
     
     // 检查缓存
     if (colorCache.has(cacheKey)) {
@@ -480,7 +499,7 @@ function findColorsInRange(startColor, endColor) {
             const pixelHex = rgbToHex(r, g, b);
             
             // 检查是否在颜色范围内
-            if (isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startToEndLengthSquared, isSameColor)) {
+            if (isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startToEndLengthSquared, isSameColor, tolerance)) {
                 if (!colorMap.has(pixelHex)) {
                     colorMap.set(pixelHex, {
                         hex: pixelHex,
@@ -517,9 +536,10 @@ function findColorsInRange(startColor, endColor) {
  * @param {Object} startToEnd - 预计算的向量
  * @param {number} startToEndLengthSquared - 预计算的向量长度平方
  * @param {boolean} isSameColor - 是否为相同颜色
+ * @param {number} tolerance - 颜色容差
  * @returns {boolean} 是否在范围内
  */
-function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startToEndLengthSquared, isSameColor) {
+function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startToEndLengthSquared, isSameColor, tolerance = 60) {
     if (isSameColor) {
         // 如果起始和结束颜色相同，使用欧几里得距离比较
         const distance = Math.sqrt(
@@ -527,7 +547,7 @@ function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startTo
             Math.pow(pixelRgb.g - startRgb.g, 2) +
             Math.pow(pixelRgb.b - startRgb.b, 2)
         );
-        return distance <= 60; // 增加容差，扩大颜色范围
+        return distance <= tolerance; // 使用自定义容差
     }
     
     const pixelToStart = {
@@ -557,9 +577,9 @@ function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startTo
             Math.pow(pixelRgb.b - projectedPoint.b, 2)
         );
         
-        // 动态容差：根据颜色范围的长度调整容差，增加容差范围
+        // 动态容差：根据颜色范围的长度调整容差，但以用户设置的容差为基准
         const rangeLength = Math.sqrt(startToEndLengthSquared);
-        const dynamicTolerance = Math.max(40, Math.min(100, rangeLength * 0.2));
+        const dynamicTolerance = Math.max(tolerance * 0.5, Math.min(tolerance * 1.5, rangeLength * 0.2));
         
         return distance <= dynamicTolerance;
     }
@@ -572,9 +592,10 @@ function isColorInRangeOptimized(pixelRgb, startRgb, endRgb, startToEnd, startTo
  * @param {Object} pixelRgb - 像素RGB值
  * @param {Object} startRgb - 起始RGB值
  * @param {Object} endRgb - 结束RGB值
+ * @param {number} tolerance - 颜色容差（可选，默认60）
  * @returns {boolean} 是否在范围内
  */
-function isColorInRange(pixelRgb, startRgb, endRgb) {
+function isColorInRange(pixelRgb, startRgb, endRgb, tolerance = 60) {
     // 计算颜色在RGB空间中的位置
     const startToEnd = {
         r: endRgb.r - startRgb.r,
@@ -599,7 +620,7 @@ function isColorInRange(pixelRgb, startRgb, endRgb) {
             Math.pow(pixelRgb.g - startRgb.g, 2) +
             Math.pow(pixelRgb.b - startRgb.b, 2)
         );
-        return distance <= 60; // 增加容差，扩大颜色范围
+        return distance <= tolerance; // 使用自定义容差
     }
     
     // 计算投影比例
@@ -620,9 +641,9 @@ function isColorInRange(pixelRgb, startRgb, endRgb) {
             Math.pow(pixelRgb.b - projectedPoint.b, 2)
         );
         
-        // 动态容差：根据颜色范围的长度调整容差，增加容差范围
+        // 动态容差：根据颜色范围的长度调整容差，但以用户设置的容差为基准
         const rangeLength = Math.sqrt(startToEndLengthSquared);
-        const dynamicTolerance = Math.max(40, Math.min(100, rangeLength * 0.2));
+        const dynamicTolerance = Math.max(tolerance * 0.5, Math.min(tolerance * 1.5, rangeLength * 0.2));
         
         return distance <= dynamicTolerance;
     }

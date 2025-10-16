@@ -539,6 +539,7 @@ button:disabled {
 
 .color-range-selector,
 .target-color-settings,
+.tolerance-setting,
 .color-replace-history {
     background-color: #f8f9fa;
     padding: 15px;
@@ -548,6 +549,7 @@ button:disabled {
 
 .color-range-selector h4,
 .target-color-settings h4,
+.tolerance-setting h4,
 .color-replace-history h4 {
     margin: 0 0 15px 0;
     color: var(--primary-color);
@@ -620,7 +622,7 @@ button:disabled {
     background-color: none;
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
+    background: none;
     outline: none;
     z-index: 2;
     pointer-events: none;
@@ -689,8 +691,19 @@ button:disabled {
     font-weight: 500;
 }
 
-.mix-ratio {
+.mix-ratio,
+.tolerance-setting {
     margin-bottom: 15px;
+}
+
+.tolerance-description {
+    margin-top: 5px;
+}
+
+.tolerance-description small {
+    color: #6c757d;
+    font-size: 0.85rem;
+    line-height: 1.4;
 }
 
 .color-replace-actions {

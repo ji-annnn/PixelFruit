@@ -201,11 +201,11 @@
                             <h4>颜色范围选择</h4>
                             <div class="color-inputs">
                                 <div class="color-input-group">
-                                    <input type="color" id="color-range-start" value="#ff0000">
+                                    <input type="color" id="color-range-start" value="#ff0000" style="background-color: none; border: none;">
                                     <label for="color-range-start">起始颜色</label>
                                 </div>
                                 <div class="color-input-group">
-                                    <input type="color" id="color-range-end" value="#0000ff">
+                                    <input type="color" id="color-range-end" value="#0000ff" style="background-color: none; border: none; >
                                     <label for="color-range-end">结束颜色</label>
                                 </div>
                             </div>
@@ -245,6 +245,17 @@
                                     <span class="value-display" id="mixRatio-value">100%</span>
                                 </div>
                             </div>
+                            
+                            <div class="tolerance-setting">
+                                <label for="colorTolerance">颜色容差</label>
+                                <div class="slider-wrapper">
+                                    <input type="range" id="colorTolerance" min="10" max="200" step="5" value="60">
+                                    <span class="value-display" id="colorTolerance-value">60</span>
+                                </div>
+                                <div class="tolerance-description">
+                                    <small>容差值越小，颜色匹配越精确；容差值越大，匹配范围越广</small>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- 操作按钮 -->
@@ -273,6 +284,7 @@
                                             <th>目标起始颜色</th>
                                             <th>目标结束颜色</th>
                                             <th>替换强度</th>
+                                            <th>容差</th>
                                             <th>替换像素</th>
                                             <th>操作</th>
                                         </tr>
@@ -1060,6 +1072,8 @@
             targetColorRangeContainer: document.getElementById('targetColorRangeContainer'),
             mixRatio: document.getElementById('mixRatio'),
             mixRatioValue: document.getElementById('mixRatio-value'),
+            colorTolerance: document.getElementById('colorTolerance'),
+            colorToleranceValue: document.getElementById('colorTolerance-value'),
             previewColorReplace: document.getElementById('previewColorReplace'),
             applyColorReplace: document.getElementById('applyColorReplace'),
             undoColorReplace: document.getElementById('undoColorReplace'),
@@ -1390,8 +1404,8 @@
         
         // 显示全屏预览
         function showFullscreenPreview() {
-            // 只有当有图像数据时才显示预览
-            if (!cachedImageData || !cachedImageData.data) {
+            // 检查是否有Canvas数据
+            if (!canvas || canvas.width === 0 || canvas.height === 0) {
                 return;
             }
             
@@ -1401,23 +1415,16 @@
             // 明确指定使用sRGB颜色空间，与主canvas保持一致
             const fullscreenCtx = fullscreenCanvas.getContext('2d', { colorSpace: 'srgb' });
             
-            // 设置全屏canvas尺寸为原始图像尺寸
-            fullscreenCanvas.width = cachedImageData.width;
-            fullscreenCanvas.height = cachedImageData.height;
+            // 设置全屏canvas尺寸为当前Canvas尺寸
+            fullscreenCanvas.width = canvas.width;
+            fullscreenCanvas.height = canvas.height;
             
-            // 创建临时数组进行处理，避免直接修改缓存数据
-            const tempData = new Uint8ClampedArray(cachedImageData.data.length);
-            tempData.set(cachedImageData.data);
-            
-            // 应用当前调整到缓存数据
-            applyAdjustmentsToCachedData(tempData, cachedImageData.width, cachedImageData.height);
-            
-            // 创建ImageData对象
-            const imageData = new ImageData(tempData, cachedImageData.width, cachedImageData.height);
+            // 直接从当前Canvas获取图像数据（包含所有修改，包括颜色替换）
+            const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             
             // 清空画布并绘制图像
             fullscreenCtx.clearRect(0, 0, fullscreenCanvas.width, fullscreenCanvas.height);
-            fullscreenCtx.putImageData(imageData, 0, 0);
+            fullscreenCtx.putImageData(currentImageData, 0, 0);
             
             // 显示模态框
             modal.style.display = 'flex';
@@ -1874,26 +1881,19 @@
         // 更新直方图
         function updateHistogram() {
             try {
-                if (!canvas || !cachedImageData || !cachedImageData.data) {
+                if (!canvas || canvas.width === 0 || canvas.height === 0) {
                     drawEmptyHistogram(histogramCtx, histogramCanvas);
                     return;
                 }
                 
-                // 创建临时数组进行处理
-                const tempData = new Uint8ClampedArray(cachedImageData.data.length);
-                tempData.set(cachedImageData.data);
-                
-                // 应用当前调整到缓存数据
-                applyAdjustmentsToCachedData(tempData, cachedImageData.width, cachedImageData.height);
-                
-                // 创建ImageData对象
-                const imageData = new ImageData(tempData, cachedImageData.width, cachedImageData.height);
+                // 直接从当前Canvas获取图像数据（包含所有修改，包括颜色替换）
+                const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
                 // 获取当前直方图模式
                 const mode = document.querySelector('.histogram-btn.active').dataset.mode;
                 
                 // 使用优化的直方图更新函数
-                optimizedUpdateHistogram(imageData, histogramCtx, histogramCanvas, mode);
+                optimizedUpdateHistogram(currentImageData, histogramCtx, histogramCanvas, mode);
             } catch (error) {
                 console.error('更新直方图时出错:', error);
                 drawEmptyHistogram(histogramCtx, histogramCanvas);
