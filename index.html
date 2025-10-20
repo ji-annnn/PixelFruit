@@ -201,11 +201,11 @@
                             <h4>颜色范围选择</h4>
                             <div class="color-inputs">
                                 <div class="color-input-group">
-                                    <input type="color" id="color-range-start" value="#ff0000" style="background-color: none; border: none;">
+                                    <input type="color" id="color-range-start" value="#ff0000" class="transparent">
                                     <label for="color-range-start">起始颜色</label>
                                 </div>
                                 <div class="color-input-group">
-                                    <input type="color" id="color-range-end" value="#0000ff" style="background-color: none; border: none; >
+                                    <input type="color" id="color-range-end" value="#0000ff" class="transparent">
                                     <label for="color-range-end">结束颜色</label>
                                 </div>
                             </div>
@@ -213,8 +213,8 @@
                             <!-- 渐变滑块 -->
                             <div class="range-wrapper" id="colorRangeContainer">
                                 <div class="gradient-track" id="colorGradientTrack"></div>
-                                <input type="range" id="colorSlider1" class="range-slider" min="0" max="100" value="0">
-                                <input type="range" id="colorSlider2" class="range-slider" min="0" max="100" value="100">
+                                <input type="range" id="colorSlider1" class="range-slider transparent" min="0" max="100" value="0">
+                                <input type="range" id="colorSlider2" class="range-slider transparent" min="0" max="100" value="100">
                             </div>
                             
                         </div>
@@ -224,11 +224,11 @@
                             <h4>目标颜色范围</h4>
                             <div class="color-inputs">
                                 <div class="color-input-group">
-                                    <input type="color" id="target-color-start" value="#00ff00">
+                                    <input type="color" id="target-color-start" value="#00ff00" class="transparent">
                                     <label for="target-color-start">目标起始颜色</label>
                                 </div>
                                 <div class="color-input-group">
-                                    <input type="color" id="target-color-end" value="#ffff00">
+                                    <input type="color" id="target-color-end" value="#ffff00" class="transparent">
                                     <label for="target-color-end">目标结束颜色</label>
                                 </div>
                             </div>
@@ -561,35 +561,44 @@
             const startTime = performance.now();
             
             try {
-                // 检查是否有缓存可用
-                const hasCache = lastProcessedSettings && processedImageData;
-                const cacheHit = hasCache && 
-                    JSON.stringify(lastProcessedSettings) === JSON.stringify({
-                        bright: settings.bright,
-                        exp_shift: settings.exp_shift,
-                        user_sat: settings.user_sat,
-                        sharpness: settings.sharpness !== undefined ? settings.sharpness : parseInt(sharpnessSlider.value),
-                        fbdd_noiserd: settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value),
-                        noiseType: currentNoiseReductionSettings.type,
-                        detailPreservation: currentNoiseReductionSettings.detailPreservation,
-                        user_mul: [...settings.user_mul],
-                        redTint: settings.redTint || 0,
-                        greenTint: settings.greenTint || 0,
-                        blueTint: settings.blueTint || 0
-                    });
+                // 检查是否有颜色替换历史记录
+                const hasColorReplacements = window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0;
                 
-                if (cacheHit) {
-                    // 使用缓存数据，直接绘制
-                    const imageData = new ImageData(processedImageData, cachedImageData.width, cachedImageData.height);
-                    ctx.putImageData(imageData, 0, 0);
-                } else {
-                    // 需要重新处理
+                // 如果有颜色替换，不使用缓存，直接重新处理
+                if (hasColorReplacements) {
+                    // 需要重新处理，从当前Canvas状态开始
                     await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+                } else {
+                    // 检查是否有缓存可用（仅在无颜色替换时使用缓存）
+                    const hasCache = lastProcessedSettings && processedImageData;
+                    const cacheHit = hasCache && 
+                        JSON.stringify(lastProcessedSettings) === JSON.stringify({
+                            bright: settings.bright,
+                            exp_shift: settings.exp_shift,
+                            user_sat: settings.user_sat,
+                            sharpness: settings.sharpness !== undefined ? settings.sharpness : parseInt(sharpnessSlider.value),
+                            fbdd_noiserd: settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value),
+                            noiseType: currentNoiseReductionSettings.type,
+                            detailPreservation: currentNoiseReductionSettings.detailPreservation,
+                            user_mul: [...settings.user_mul],
+                            redTint: settings.redTint || 0,
+                            greenTint: settings.greenTint || 0,
+                            blueTint: settings.blueTint || 0
+                        });
+                    
+                    if (cacheHit) {
+                        // 使用缓存数据，直接绘制
+                        const imageData = new ImageData(processedImageData, cachedImageData.width, cachedImageData.height);
+                        ctx.putImageData(imageData, 0, 0);
+                    } else {
+                        // 需要重新处理
+                        await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+                    }
                 }
                 
                 // 更新性能统计
                 const processTime = performance.now() - startTime;
-                updatePerformanceStats(processTime, cacheHit);
+                updatePerformanceStats(processTime, hasColorReplacements ? false : cacheHit);
                 
                 // 批量更新UI组件
                 requestAnimationFrame(() => {
@@ -864,12 +873,39 @@
                 blueTint: settings.blueTint || 0
             };
             
+            // 检查是否有颜色替换历史记录
+            const hasColorReplacements = window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0;
+            
+            // 如果有颜色替换，从当前Canvas状态开始处理，而不是从原始缓存数据
+            if (hasColorReplacements) {
+                // 检查Canvas是否有有效数据
+                if (canvas.width > 0 && canvas.height > 0) {
+                    try {
+                        // 从当前Canvas获取图像数据（包含颜色替换效果）
+                        const currentCanvasData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        
+                        // 检查获取的数据是否有效
+                        if (currentCanvasData && currentCanvasData.data && currentCanvasData.data.length > 0) {
+                            data.set(currentCanvasData.data);
+                            console.log('检测到颜色替换，从当前Canvas状态开始处理细节');
+                        } else {
+                            console.warn('Canvas数据无效，使用原始缓存数据');
+                        }
+                    } catch (error) {
+                        console.error('从Canvas获取数据失败:', error);
+                        console.warn('使用原始缓存数据');
+                    }
+                } else {
+                    console.warn('Canvas尺寸无效，跳过从Canvas获取数据');
+                }
+            }
+            
             // 检查设置是否发生变化
             const settingsChanged = !lastProcessedSettings || 
                 JSON.stringify(currentSettings) !== JSON.stringify(lastProcessedSettings);
             
-            if (!settingsChanged && processedImageData) {
-                // 如果设置没有变化且有缓存，直接使用缓存数据
+            if (!settingsChanged && processedImageData && !hasColorReplacements) {
+                // 如果设置没有变化且有缓存，且没有颜色替换，直接使用缓存数据
                 data.set(processedImageData);
                 return;
             }
@@ -883,8 +919,11 @@
             const needSharpness = sharpness > 0;
             const needNoiseReduction = noiseReduction > 0;
             
-            // 应用颜色调整（从color.js模块）
-            applyColorAdjustments(data, width, height, settings);
+            // 只有在没有颜色替换时才应用颜色调整（避免覆盖颜色替换效果）
+            if (!hasColorReplacements) {
+                // 应用颜色调整（从color.js模块）
+                applyColorAdjustments(data, width, height, settings);
+            }
             
             // 先应用降噪
             if (needNoiseReduction) {
@@ -903,12 +942,14 @@
                 applySharpness(data, width, height, sharpness);
             }
             
-            // 缓存处理结果
-            if (!processedImageData) {
-                processedImageData = new Uint8ClampedArray(data.length);
+            // 缓存处理结果（只有在没有颜色替换时才缓存，避免缓存被颜色替换覆盖）
+            if (!hasColorReplacements) {
+                if (!processedImageData) {
+                    processedImageData = new Uint8ClampedArray(data.length);
+                }
+                processedImageData.set(data);
+                lastProcessedSettings = currentSettings;
             }
-            processedImageData.set(data);
-            lastProcessedSettings = currentSettings;
             
             // 记录处理时间
             const endTime = performance.now();
@@ -1933,6 +1974,21 @@
         
         // 暴露更新直方图的方法供外部调用
         window.updateHistogram = updateHistogram;
+        
+        // 暴露清除图像处理缓存的方法供颜色替换模块调用
+        window.clearImageProcessingCache = function() {
+            lastProcessedSettings = null;
+            processedImageData = null;
+            console.log('已清除图像处理缓存');
+        };
+        
+        // 暴露获取当前Canvas状态的方法
+        window.getCurrentCanvasState = function() {
+            if (canvas.width > 0 && canvas.height > 0) {
+                return ctx.getImageData(0, 0, canvas.width, canvas.height);
+            }
+            return null;
+        };
         
         // 初始绘制空直方图
         drawEmptyHistogram(histogramCtx, histogramCanvas);

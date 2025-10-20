@@ -53,9 +53,17 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
     }
     
     try {
-        // 设置canvas尺寸
-        canvas.width = width;
-        canvas.height = height;
+        // 检查尺寸是否有效
+        if (width <= 0 || height <= 0) {
+            console.error('无效的图像尺寸:', { width, height });
+            return;
+        }
+        
+        // 设置canvas尺寸（只有在尺寸不同时才设置，避免不必要的重置）
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+        }
         
         // 创建临时数组进行处理，避免直接修改缓存数据
         const tempData = new Uint8ClampedArray(cachedImageData.data.length);
@@ -63,6 +71,12 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
         
         // 应用调整到缓存数据
         applyAdjustmentsToCachedData(tempData, width, height);
+        
+        // 检查处理后的数据是否有效
+        if (tempData.length === 0) {
+            console.error('处理后的图像数据为空');
+            return;
+        }
         
         // 创建ImageData对象
         const imageData = new ImageData(tempData, width, height);
@@ -72,6 +86,8 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
         
         // 直接绘制图像
         ctx.putImageData(imageData, 0, 0);
+        
+        console.log('图像更新完成，尺寸:', { width, height });
     } catch (error) {
         console.error('从缓存更新图像时出错:', error);
     }

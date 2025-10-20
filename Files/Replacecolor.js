@@ -301,6 +301,11 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         
         // 清除颜色缓存，因为图像已经改变
         clearColorCache();
+        
+        // 清除主程序的图像处理缓存，确保细节处理从当前Canvas状态开始
+        if (window.clearImageProcessingCache) {
+            window.clearImageProcessingCache();
+        }
     }
 
     /**

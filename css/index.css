@@ -1,4 +1,3 @@
-/* CSS 样式文件 - 像素果 RAW 图像处理工具 */
 :root {
     --primary-color: #3498db;
     --secondary-color: #2980b9;
@@ -583,6 +582,14 @@ button:disabled {
     transition: border-color 0.3s ease;
 }
 
+/* 透明颜色输入框样式 */
+.color-input-group input[type="color"].transparent {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+}
+
 .color-input-group input[type="color"]:hover {
     border-color: var(--primary-color);
 }
@@ -627,6 +634,12 @@ button:disabled {
     z-index: 2;
     pointer-events: none;
     margin: 0;
+}
+
+/* 透明范围滑块样式 */
+.range-slider.transparent {
+    background: transparent !important;
+    border: none !important;
 }
 
 .range-slider::-webkit-slider-thumb {
