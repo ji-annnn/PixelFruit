@@ -219,6 +219,11 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         ctx.putImageData(imageData, 0, 0);
         console.log('Canvas已更新');
         
+        // 保存颜色替换后的基准数据，用于后续基本设置调整
+        if (window.saveColorReplaceBaseData) {
+            window.saveColorReplaceBaseData(imageData);
+        }
+        
         // 保存到历史记录
         const changeRecord = {
             id: Date.now(),
@@ -269,6 +274,11 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         
         // 恢复原始图像
         ctx.putImageData(lastChange.originalImageData, 0, 0);
+        
+        // 清除颜色替换基准数据
+        if (window.clearColorReplaceBaseData) {
+            window.clearColorReplaceBaseData();
+        }
         
         // 从历史记录中移除
         colorReplaceHistory.pop();
@@ -438,6 +448,11 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
             
             // 恢复原始图像
             ctx.putImageData(record.originalImageData, 0, 0);
+            
+            // 清除颜色替换基准数据
+            if (window.clearColorReplaceBaseData) {
+                window.clearColorReplaceBaseData();
+            }
             
             // 从历史记录中移除
             colorReplaceHistory.splice(index, 1);

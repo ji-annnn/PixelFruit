@@ -125,6 +125,9 @@ export function initColorModule(elements) {
 
 // 应用颜色调整到缓存数据
 export function applyColorAdjustments(data, width, height, settings) {
+    // 检查是否有颜色替换历史记录
+    const hasColorReplacements = window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0;
+    
     // 获取当前设置 - 优先使用settings对象中的值，然后再回退到DOM滑块获取
     const brightness = settings.bright || 1.0;
     // 优先使用settings.contrast，如果不存在则从滑块获取
@@ -169,6 +172,13 @@ export function applyColorAdjustments(data, width, height, settings) {
     if (!needBrightness && !needContrast && !needSaturation && 
         !needTemperature && !needTint && !needExposure && !useUserMul && !needShadows && !needHighlights && !needWhites) {
         return;
+    }
+    
+    // 如果有颜色替换，记录调试信息
+    if (hasColorReplacements) {
+        console.log('应用颜色调整到包含颜色替换的图像，调整参数:', {
+            brightness, contrast, saturation, exposure, shadows, highlights, whites
+        });
     }
     
     // 使用局部变量缓存常用值，提高访问速度

@@ -522,6 +522,8 @@
         let currentFileBuffer = null;
         // 缓存处理后的图像数据
         let cachedImageData = null;
+        // 颜色替换后的基准图像数据（用于基本设置调整的基准）
+        let colorReplaceBaseImageData = null;
         
         // 降噪相关的当前设置
         let currentNoiseReductionSettings = {
@@ -876,27 +878,30 @@
             // 检查是否有颜色替换历史记录
             const hasColorReplacements = window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0;
             
-            // 如果有颜色替换，从当前Canvas状态开始处理，而不是从原始缓存数据
+            // 如果有颜色替换，使用颜色替换后的基准数据，避免累积处理
             if (hasColorReplacements) {
-                // 检查Canvas是否有有效数据
-                if (canvas.width > 0 && canvas.height > 0) {
-                    try {
-                        // 从当前Canvas获取图像数据（包含颜色替换效果）
-                        const currentCanvasData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                        
-                        // 检查获取的数据是否有效
-                        if (currentCanvasData && currentCanvasData.data && currentCanvasData.data.length > 0) {
-                            data.set(currentCanvasData.data);
-                            console.log('检测到颜色替换，从当前Canvas状态开始处理细节');
-                        } else {
-                            console.warn('Canvas数据无效，使用原始缓存数据');
-                        }
-                    } catch (error) {
-                        console.error('从Canvas获取数据失败:', error);
-                        console.warn('使用原始缓存数据');
-                    }
+                if (colorReplaceBaseImageData && colorReplaceBaseImageData.data) {
+                    // 使用颜色替换后的基准数据，避免累积调整
+                    data.set(colorReplaceBaseImageData.data);
+                    console.log('使用颜色替换基准数据，避免累积处理');
                 } else {
-                    console.warn('Canvas尺寸无效，跳过从Canvas获取数据');
+                    // 如果没有基准数据，从当前Canvas获取（首次处理）
+                    if (canvas.width > 0 && canvas.height > 0) {
+                        try {
+                            const currentCanvasData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            if (currentCanvasData && currentCanvasData.data && currentCanvasData.data.length > 0) {
+                                data.set(currentCanvasData.data);
+                                console.log('首次处理，从当前Canvas状态开始');
+                            } else {
+                                console.warn('Canvas数据无效，使用原始缓存数据');
+                            }
+                        } catch (error) {
+                            console.error('从Canvas获取数据失败:', error);
+                            console.warn('使用原始缓存数据');
+                        }
+                    } else {
+                        console.warn('Canvas尺寸无效，使用原始缓存数据');
+                    }
                 }
             }
             
@@ -919,11 +924,9 @@
             const needSharpness = sharpness > 0;
             const needNoiseReduction = noiseReduction > 0;
             
-            // 只有在没有颜色替换时才应用颜色调整（避免覆盖颜色替换效果）
-            if (!hasColorReplacements) {
-                // 应用颜色调整（从color.js模块）
-                applyColorAdjustments(data, width, height, settings);
-            }
+            // 应用颜色调整（从color.js模块）
+            // 注意：即使有颜色替换，也需要应用基本设置，因为颜色替换只影响特定颜色范围
+            applyColorAdjustments(data, width, height, settings);
             
             // 先应用降噪
             if (needNoiseReduction) {
@@ -1988,6 +1991,85 @@
                 return ctx.getImageData(0, 0, canvas.width, canvas.height);
             }
             return null;
+        };
+        
+        // 暴露测试基本设置功能的方法
+        window.testBasicSettings = function() {
+            console.log('=== 基本设置功能测试 ===');
+            console.log('当前设置:', {
+                brightness: settings.bright,
+                exposure: settings.exp_shift,
+                saturation: settings.user_sat,
+                contrast: settings.contrast,
+                hasColorReplacements: window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0
+            });
+            console.log('Canvas状态:', {
+                width: canvas.width,
+                height: canvas.height,
+                hasData: canvas.width > 0 && canvas.height > 0
+            });
+            console.log('颜色替换基准数据:', {
+                hasBaseData: colorReplaceBaseImageData !== null,
+                dataLength: colorReplaceBaseImageData ? colorReplaceBaseImageData.data.length : 0
+            });
+        };
+        
+        // 保存颜色替换后的基准数据
+        window.saveColorReplaceBaseData = function(imageData) {
+            colorReplaceBaseImageData = {
+                data: new Uint8ClampedArray(imageData.data),
+                width: imageData.width,
+                height: imageData.height
+            };
+            console.log('已保存颜色替换基准数据');
+        };
+        
+        // 清除颜色替换基准数据
+        window.clearColorReplaceBaseData = function() {
+            colorReplaceBaseImageData = null;
+            console.log('已清除颜色替换基准数据');
+        };
+        
+        // 重置到颜色替换基准状态（清除所有基本设置调整）
+        window.resetToColorReplaceBase = function() {
+            if (colorReplaceBaseImageData && colorReplaceBaseImageData.data) {
+                // 重置所有基本设置为默认值
+                settings.bright = 1.0;
+                settings.exp_shift = 0.0;
+                settings.user_sat = 100;
+                settings.contrast = 0;
+                settings.shadows = 0;
+                settings.highlights = 0;
+                settings.whites = 100;
+                settings.user_mul = [1.0, 1.0, 1.0, 1.0];
+                
+                // 更新UI控件
+                brightnessSlider.value = 1.0;
+                brightnessValue.textContent = '1.0';
+                exposureSlider.value = 0.0;
+                exposureValue.textContent = '0.0';
+                saturationSlider.value = 100;
+                saturationValue.textContent = '100';
+                contrastSlider.value = 0;
+                contrastValue.textContent = '0';
+                shadowsSlider.value = 0;
+                shadowsValue.textContent = '0';
+                highlightsSlider.value = 0;
+                highlightsValue.textContent = '0';
+                whitesSlider.value = 100;
+                
+                // 直接显示基准图像
+                const imageData = new ImageData(colorReplaceBaseImageData.data, colorReplaceBaseImageData.width, colorReplaceBaseImageData.height);
+                ctx.putImageData(imageData, 0, 0);
+                
+                // 清除处理缓存
+                lastProcessedSettings = null;
+                processedImageData = null;
+                
+                console.log('已重置到颜色替换基准状态');
+            } else {
+                console.warn('没有颜色替换基准数据可重置');
+            }
         };
         
         // 初始绘制空直方图
