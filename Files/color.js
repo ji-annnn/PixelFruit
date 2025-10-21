@@ -20,6 +20,7 @@ export let colorElements = {
     shadowsSlider: null,
     shadowsValue: null,
     whitesSlider: null,
+    whitesValue: null,
     redTintValue: null,
     greenTintValue: null,
     blueTintValue: null
@@ -121,6 +122,7 @@ export function initColorModule(elements) {
     colorElements.shadowsSlider = elements.shadowsSlider || document.getElementById('shadows');
     colorElements.shadowsValue = elements.shadowsValue || document.getElementById('shadows-value');
     colorElements.whitesSlider = elements.whitesSlider || document.getElementById('whites');
+    colorElements.whitesValue = elements.whitesValue || document.getElementById('whites-value');
 }
 
 // 应用颜色调整到缓存数据
@@ -414,6 +416,7 @@ export function registerColorEventListeners(settings, debouncedImageUpdate, debo
     // 为白色滑块添加事件监听器
     colorElements.whitesSlider.addEventListener('input', function() {
         settings.whites = parseInt(this.value);
+        colorElements.whitesValue.textContent = this.value;
         debouncedImageUpdate();
     });
     

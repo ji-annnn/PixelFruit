@@ -249,8 +249,8 @@ input[type="checkbox"] {
 }
 
 .color-adjustments {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    display: flex;
+    flex-direction: column;
     gap: 15px;
 }
 
@@ -299,10 +299,29 @@ input[type="checkbox"] {
 
 .tab-content {
     display: none;
+    min-height: 400px; /* 确保所有标签页有相同的最小高度 */
+    opacity: 0;
+    transition: opacity 0.3s ease-in-out;
 }
 
 .tab-content.active {
     display: block;
+    opacity: 1;
+}
+
+/* 统一所有标签页内容的布局 */
+.tab-content > div {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    min-height: 350px; /* 确保内容区域有足够高度 */
+}
+
+/* 细节控制容器样式 */
+.detail-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .button-group {
@@ -457,6 +476,15 @@ button:disabled {
         flex: 1;
         min-width: auto;
     }
+    
+    /* 确保标签页内容在移动设备上也有统一高度 */
+    .tab-content {
+        min-height: 300px;
+    }
+    
+    .tab-content > div {
+        min-height: 250px;
+    }
 }
 
 /* 图片细节面板样式 */
@@ -533,7 +561,7 @@ button:disabled {
 .color-replace-controls {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px; /* 与其他标签页保持一致 */
 }
 
 .color-range-selector,
@@ -544,6 +572,7 @@ button:disabled {
     padding: 15px;
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
+    margin-bottom: 10px; /* 统一间距 */
 }
 
 .color-range-selector h4,

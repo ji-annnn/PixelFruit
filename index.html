@@ -149,13 +149,17 @@
                         </div>
                         <div class="color-slider">
                             <label for="whites">白色</label>
-                            <input type="range" id="whites" min="0" max="100" step="1" value="100">
+                            <div class="slider-wrapper">
+                                <input type="range" id="whites" min="0" max="100" step="1" value="100">
+                                <span class="value-display" id="whites-value">100</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="tab-content" id="detail-tab">
-                    <div class="slider-group">
+                    <div class="detail-controls">
+                        <div class="slider-group">
                         <label for="sharpness">锐化</label>
                         <div class="slider-wrapper">
                             <input type="range" id="sharpness" min="0" max="100" step="1" value="0">
@@ -191,6 +195,7 @@
                             <input type="range" id="texture" min="-50" max="50" step="1" value="0">
                             <span class="value-display" id="texture-value">0</span>
                         </div>
+                    </div>
                     </div>
                 </div>
                 
@@ -411,6 +416,7 @@
         const shadowsSlider = document.getElementById('shadows');
         const shadowsValue = document.getElementById('shadows-value');
         const whitesSlider = document.getElementById('whites');
+        const whitesValue = document.getElementById('whites-value');
         const noiseReductionTypeSelect = document.getElementById('noise-reduction-type');
         const detailPreservationSlider = document.getElementById('detail-preservation');
         const detailPreservationValue = document.getElementById('detail-preservation-value');
@@ -442,7 +448,8 @@
             highlightsValue,
             shadowsSlider,
             shadowsValue,
-            whitesSlider
+            whitesSlider,
+            whitesValue
         };
         
         // 初始化颜色模块
@@ -512,6 +519,18 @@
                 exp_shift: 0.0,
                 user_sat: 0,
                 contrast: 15
+            },
+            '球场电影感': {
+                bright: 0.95,       // 略压整体亮度，保留高光层次
+                exp_shift: -0.2,    // 轻微欠曝，营造电影感
+                user_sat: 85,       // 适度去饱和
+                contrast: 18,       // 增强对比
+                highlights: -12,    // 压高光，避免天空过曝
+                shadows: 6,         // 提升阴影细节
+                whites: 95,         // 白场略降，避免刺眼
+                blue_tint: 10,      // 阴影偏蓝
+                green_tint: 5,      // 略加绿形成青色调
+                red_tint: -6        // 抑制红，突出青
             }
         };
         
@@ -707,6 +726,7 @@
             settings.blueTint = 0;
             
             whitesSlider.value = 100;
+            whitesValue.textContent = '100';
             settings.whites = 100;
             
             // 重置白平衡设置
@@ -865,6 +885,10 @@
                 bright: settings.bright,
                 exp_shift: settings.exp_shift,
                 user_sat: settings.user_sat,
+                contrast: settings.contrast !== undefined ? settings.contrast : parseInt(contrastSlider.value),
+                highlights: settings.highlights !== undefined ? settings.highlights : parseInt(highlightsSlider.value),
+                shadows: settings.shadows !== undefined ? settings.shadows : parseInt(shadowsSlider.value),
+                whites: settings.whites !== undefined ? settings.whites : parseInt(whitesSlider.value),
                 sharpness: settings.sharpness !== undefined ? settings.sharpness : parseInt(sharpnessSlider.value),
                 fbdd_noiserd: settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value),
                 noiseType: currentNoiseReductionSettings.type,
@@ -1082,6 +1106,7 @@
             highlightsSlider.value = 0;
             shadowsSlider.value = 0;
             whitesSlider.value = 100;
+            whitesValue.textContent = '100';
             
             // 重置降噪设置
             currentNoiseReductionSettings = {
@@ -2057,6 +2082,7 @@
                 highlightsSlider.value = 0;
                 highlightsValue.textContent = '0';
                 whitesSlider.value = 100;
+                whitesValue.textContent = '100';
                 
                 // 直接显示基准图像
                 const imageData = new ImageData(colorReplaceBaseImageData.data, colorReplaceBaseImageData.width, colorReplaceBaseImageData.height);
