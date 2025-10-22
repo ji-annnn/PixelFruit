@@ -57,10 +57,35 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
         });
     });
 
-    // 滑块事件监听
-    [colorSlider1, colorSlider2].forEach(el => {
+    // 滑块事件监听 - 优化双滑块交互
+    [colorSlider1, colorSlider2].forEach((el, index) => {
+        // 添加鼠标事件来改善交互
+        el.addEventListener('mousedown', (e) => {
+            // 将当前滑块置于最前
+            el.style.zIndex = '10';
+            const otherSlider = index === 0 ? colorSlider2 : colorSlider1;
+            otherSlider.style.zIndex = '5';
+        });
+        
+        el.addEventListener('mouseup', () => {
+            // 恢复默认层级
+            el.style.zIndex = index === 0 ? '2' : '3';
+        });
+        
         el.addEventListener('input', () => {
             enforceSliderOrder();
+            updateGradientTrack(); // 更新渐变显示
+        });
+        
+        // 添加触摸事件支持（移动设备）
+        el.addEventListener('touchstart', (e) => {
+            el.style.zIndex = '10';
+            const otherSlider = index === 0 ? colorSlider2 : colorSlider1;
+            otherSlider.style.zIndex = '5';
+        });
+        
+        el.addEventListener('touchend', () => {
+            el.style.zIndex = index === 0 ? '2' : '3';
         });
     });
 
@@ -109,12 +134,30 @@ export function initColorReplace(elements, canvas, updateImageCallback) {
     }
 
     /**
-     * 强制滑块顺序
+     * 强制滑块顺序 - 优化版
      */
     function enforceSliderOrder() {
-        if (+colorSlider1.value > +colorSlider2.value) {
-            [colorSlider1.value, colorSlider2.value] = [colorSlider2.value, colorSlider1.value];
+        const val1 = +colorSlider1.value;
+        const val2 = +colorSlider2.value;
+        
+        // 如果滑块1的值大于滑块2，交换它们
+        if (val1 > val2) {
+            colorSlider1.value = val2;
+            colorSlider2.value = val1;
+            
+            // 添加视觉反馈
+            colorSlider1.style.transform = 'scale(1.05)';
+            colorSlider2.style.transform = 'scale(1.05)';
+            
+            setTimeout(() => {
+                colorSlider1.style.transform = 'scale(1)';
+                colorSlider2.style.transform = 'scale(1)';
+            }, 200);
         }
+        
+        // 确保滑块值在有效范围内
+        colorSlider1.value = Math.max(0, Math.min(100, colorSlider1.value));
+        colorSlider2.value = Math.max(0, Math.min(100, colorSlider2.value));
     }
 
 
