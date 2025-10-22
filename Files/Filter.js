@@ -102,7 +102,22 @@ export class FilterManager {
      * @param {Function} updateFunction - 更新函数
      */
     applyFilterPreset(presetName, settings, elements, resetFunction, updateFunction) {
-        if (presetName === 'none' || !this.filterPresets[presetName]) {
+        if (presetName === 'none') {
+            // 无滤镜：重置所有参数到默认值
+            resetFunction();
+            // 更新白平衡系数
+            if (updateFunction) {
+                updateFunction(settings);
+            }
+            // 触发图像更新
+            if (updateFunction) {
+                updateFunction();
+            }
+            this.currentPreset = presetName;
+            return;
+        }
+        
+        if (!this.filterPresets[presetName]) {
             return;
         }
         
