@@ -362,6 +362,8 @@
         import { drawEmptyHistogram, optimizedUpdateHistogram, createDebouncedHistogramUpdate } from './Files/HistogramManager.js';
         import { exportImage, exportPNG, exportJPEG } from './Files/exportImage.js';
         import { initColorReplace } from './Files/Replacecolor.js';
+        import { initFilterModule } from './Files/Filter.js';
+        import { initChartModule } from './Files/Chart.js';
         
         // 获取DOM元素
         const rawFileInput = document.getElementById('raw-file');
@@ -472,67 +474,7 @@
             shadows: 0
         };
         
-        // 存储滤镜预设
-        let filterPresets = {
-            '万能公式': {
-                bright: 1.1,
-                exp_shift: 0.2,
-                user_sat: 130,
-                highlights: -10,
-                shadows: 5,
-                green_tint: 5,
-                blue_tint: 5
-            },    
-            '富士色彩': {
-                bright: 1.05,
-                exp_shift: 0.0,
-                user_sat: 125,
-                highlights: -10,
-                shadows: 5,
-                contrast: 15,
-                blue_tint: 10,
-                red_tint: -5
-            },
-            '复古钟楼': {
-                bright: 1.08,
-                exp_shift: 0.1,
-                user_sat: 115,
-                highlights: -15,
-                shadows: 10,
-                contrast: 12,
-                blue_tint: 8,
-                green_tint: 3,
-                red_tint: -2
-            },
-            '复古胶片': {
-                bright: 0.9,
-                exp_shift: 0.0,
-                user_sat: 110,
-                highlights: -5,
-                shadows: 10,
-                red_tint: 5,
-                green_tint: -3,
-                blue_tint: -10
-            },
-            '黑白模式': {
-                bright: 1.0,
-                exp_shift: 0.0,
-                user_sat: 0,
-                contrast: 15
-            },
-            '球场电影感': {
-                bright: 0.95,       // 略压整体亮度，保留高光层次
-                exp_shift: -0.2,    // 轻微欠曝，营造电影感
-                user_sat: 85,       // 适度去饱和
-                contrast: 18,       // 增强对比
-                highlights: -12,    // 压高光，避免天空过曝
-                shadows: 6,         // 提升阴影细节
-                whites: 95,         // 白场略降，避免刺眼
-                blue_tint: 10,      // 阴影偏蓝
-                green_tint: 5,      // 略加绿形成青色调
-                red_tint: -6        // 抑制红，突出青
-            }
-        };
+        // 滤镜预设已移至 Filter.js 模块
         
         // 配置参数
         let settings = { ...defaultSettings };
@@ -623,7 +565,9 @@
                 
                 // 批量更新UI组件
                 requestAnimationFrame(() => {
-                    updateHistogram();
+                    if (window.chartManager) {
+                        window.chartManager.forceUpdateHistogram();
+                    }
                     refreshImageDetails();
                     isProcessing = false;
                 });
@@ -640,6 +584,17 @@
             }
         }, 80); // 减少防抖延迟，提高响应性
         
+        // 创建包含直方图更新的统一更新函数
+        const debouncedImageUpdateWithHistogram = debounceUtil(async () => {
+            if (cachedImageData && !isProcessing) {
+                await batchImageUpdate();
+            }
+            // 更新直方图
+            if (window.chartManager) {
+                window.chartManager.forceUpdateHistogram();
+            }
+        }, 80);
+        
         // 用于检测滑块是否正在拖动的标志
         let isSliderDragging = false;
         
@@ -651,7 +606,7 @@
         sharpnessSlider.addEventListener('mouseup', () => {
             isSliderDragging = false;
             // 拖动结束后立即应用一次完整处理
-            debouncedImageUpdate();
+            debouncedImageUpdateWithHistogram();
         });
         
         // 同样监听触摸事件（移动设备）
@@ -662,28 +617,14 @@
         sharpnessSlider.addEventListener('touchend', () => {
             isSliderDragging = false;
             // 拖动结束后立即应用一次完整处理
-            debouncedImageUpdate();
+            debouncedImageUpdateWithHistogram();
         });
         
         // 暴露isSliderDragging标志供Details.js使用
         window.isSliderDragging = () => isSliderDragging;
         
         
-        // 初始化滤镜选择器
-        function initFilterSelector() {
-            // 清空现有选项（保留默认的"无滤镜"选项）
-            while (filterSelect.options.length > 1) {
-                filterSelect.remove(1);
-            }
-            
-            // 添加滤镜预设选项
-            for (const presetName in filterPresets) {
-                const option = document.createElement('option');
-                option.value = presetName;
-                option.textContent = presetName;
-                filterSelect.appendChild(option);
-            }
-        }
+        // 滤镜选择器初始化已移至 Filter.js 模块
         
         // 完全重置所有参数到默认值
         function resetAllParametersToDefault() {
@@ -761,118 +702,9 @@
             noiseReductionTypeSelect.value = 'mean';
         }
 
-        // 应用滤镜预设（改进版：先重置再应用）
-        function applyFilterPreset(presetName) {
-            if (presetName === 'none' || !filterPresets[presetName]) {
-                return;
-            }
-            
-            const preset = filterPresets[presetName];
-            
-            // 第一步：完全重置所有参数到默认值
-            resetAllParametersToDefault();
-            
-            // 第二步：应用预设滤镜的所有参数
-            for (const key in preset) {
-                switch (key) {
-                    case 'bright':
-                        brightnessSlider.value = preset[key];
-                        brightnessValue.textContent = preset[key].toFixed(1);
-                        settings[key] = preset[key];
-                        break;
-                    case 'exp_shift':
-                        exposureSlider.value = preset[key];
-                        exposureValue.textContent = preset[key].toFixed(1);
-                        settings[key] = preset[key];
-                        break;
-                    case 'user_sat':
-                        saturationSlider.value = preset[key];
-                        saturationValue.textContent = preset[key];
-                        settings[key] = preset[key];
-                        break;
-                    case 'contrast':
-                        contrastSlider.value = preset[key];
-                        contrastValue.textContent = preset[key];
-                        settings.contrast = preset[key];
-                        break;
-                    case 'highlights':
-                        highlightsSlider.value = preset[key];
-                        highlightsValue.textContent = preset[key];
-                        settings[key] = preset[key];
-                        break;
-                    case 'shadows':
-                        shadowsSlider.value = preset[key];
-                        shadowsValue.textContent = preset[key];
-                        settings[key] = preset[key];
-                        break;
-                    case 'red_tint':
-                        redTintSlider.value = preset[key];
-                        redTintValue.textContent = preset[key];
-                        settings.redTint = preset[key];
-                        break;
-                    case 'green_tint':
-                        greenTintSlider.value = preset[key];
-                        greenTintValue.textContent = preset[key];
-                        settings.greenTint = preset[key];
-                        break;
-                    case 'blue_tint':
-                        blueTintSlider.value = preset[key];
-                        blueTintValue.textContent = preset[key];
-                        settings.blueTint = preset[key];
-                        break;
-                    case 'whites':
-                        whitesSlider.value = preset[key];
-                        settings.whites = preset[key];
-                        break;
-                    // 添加其他需要的参数处理
-                }
-            }
-            
-            // 第三步：更新白平衡系数
-            updateWhiteBalanceCoefficients(settings);
-            
-            // 第四步：触发图像更新
-            if (cachedImageData) {
-                debouncedImageUpdate();
-                // 触发直方图更新
-                updateHistogram();
-            }
-        }
+        // 滤镜预设应用已移至 Filter.js 模块
         
-        // 保存当前配置为新的滤镜预设
-        function saveCurrentConfigAsPreset() {
-            const presetName = prompt('请输入滤镜名称:', '新滤镜' + (Object.keys(filterPresets).length + 1));
-            
-            if (!presetName || presetName.trim() === '') {
-                alert('滤镜名称不能为空！');
-                return;
-            }
-            
-            // 获取当前所有设置
-            const currentConfig = {
-                bright: parseFloat(brightnessSlider.value),
-                exp_shift: parseFloat(exposureSlider.value),
-                user_sat: parseInt(saturationSlider.value),
-                contrast: parseInt(contrastSlider.value),
-                highlights: parseInt(highlightsSlider.value),
-                shadows: parseInt(shadowsSlider.value),
-                red_tint: parseInt(redTintSlider.value),
-                green_tint: parseInt(greenTintSlider.value),
-                blue_tint: parseInt(blueTintSlider.value)
-                // 添加其他需要保存的参数
-            };
-            
-            // 保存预设
-            filterPresets[presetName] = currentConfig;
-            
-            // 更新选择器
-            initFilterSelector();
-            
-            // 选择新保存的预设
-            filterSelect.value = presetName;
-            
-            alert('滤镜预设 "' + presetName + '" 已保存！');
-        }
+        // 滤镜保存功能已移至 Filter.js 模块
 
         // 处理缓存和优化
         let lastProcessedSettings = null;
@@ -1065,7 +897,9 @@
                 refreshImageDetails();
                 
                 // 更新直方图
-                updateHistogram();
+                if (window.chartManager) {
+                    window.chartManager.forceUpdateHistogram();
+                }
             } catch (error) {
                 console.error('处理文件时出错:', error);
                 statusMessage.textContent = '处理失败';
@@ -1166,7 +1000,7 @@
                 callback: (e) => {
                     settings.bright = parseFloat(e.target.value);
                     brightnessValue.textContent = settings.bright.toFixed(1);
-                    debouncedImageUpdate();
+                    debouncedImageUpdateWithHistogram();
                 }
             },
             {
@@ -1174,7 +1008,7 @@
                 callback: (e) => {
                     settings.exp_shift = parseFloat(e.target.value);
                     exposureValue.textContent = settings.exp_shift.toFixed(1);
-                    debouncedImageUpdate();
+                    debouncedImageUpdateWithHistogram();
                 }
             },
             {
@@ -1182,14 +1016,14 @@
                 callback: (e) => {
                     settings.fbdd_noiserd = parseInt(e.target.value);
                     noiseReductionValue.textContent = settings.fbdd_noiserd;
-                    debouncedImageUpdate();
+                    debouncedImageUpdateWithHistogram();
                 }
             },
             {
                 element: noiseReductionTypeSelect,
                 callback: (e) => {
                     currentNoiseReductionSettings.type = e.target.value;
-                    debouncedImageUpdate();
+                    debouncedImageUpdateWithHistogram();
                 },
                 eventType: 'change'
             },
@@ -1198,7 +1032,7 @@
                 callback: (e) => {
                     currentNoiseReductionSettings.detailPreservation = parseInt(e.target.value);
                     detailPreservationValue.textContent = currentNoiseReductionSettings.detailPreservation;
-                    debouncedImageUpdate();
+                    debouncedImageUpdateWithHistogram();
                 }
             }
         ]);
@@ -1224,11 +1058,11 @@
         const debouncedColorUpdate = debounceUtil(() => {
             updateWhiteBalanceCoefficients(settings);
             // 无论是否有缓存数据，都触发图像更新
-            debouncedImageUpdate();
+            debouncedImageUpdateWithHistogram();
         }, 150); // 减少延迟到150ms，提高响应速度
         
         // 使用 color.js 中的函数注册所有颜色调整事件监听器
-        registerColorEventListeners(settings, debouncedImageUpdate, debouncedColorUpdate);
+        registerColorEventListeners(settings, debouncedImageUpdateWithHistogram, debouncedColorUpdate);
         
         // 使用SliderManager添加剩余滑块的事件监听器
         addSliderEventListenersBatch([
@@ -1236,14 +1070,14 @@
                 element: sharpnessSlider,
                 callback: (e) => {
                     sharpnessValue.textContent = e.target.value;
-                    debouncedImageUpdate();
+                    debouncedImageUpdateWithHistogram();
                 }
             },
             {
                 element: textureSlider,
                 callback: (e) => {
                     textureValue.textContent = e.target.value;
-                    debouncedImageUpdate();
+                    debouncedImageUpdateWithHistogram();
                 }
             }
         ]);
@@ -1363,28 +1197,48 @@
         
 
         
-        // 初始化滤镜选择器
-        window.addEventListener('load', () => {
-            initFilterSelector();
-        });
+        // 初始化滤镜模块
+        const filterElements = {
+            filterSelect,
+            saveFilterButton,
+            rawFileInput,
+            resetButton,
+            brightnessSlider,
+            brightnessValue,
+            exposureSlider,
+            exposureValue,
+            saturationSlider,
+            saturationValue,
+            contrastSlider,
+            contrastValue,
+            highlightsSlider,
+            highlightsValue,
+            shadowsSlider,
+            shadowsValue,
+            redTintSlider,
+            redTintValue,
+            greenTintSlider,
+            greenTintValue,
+            blueTintSlider,
+            blueTintValue,
+            whitesSlider,
+            whitesValue
+        };
         
-        // 为滤镜选择器添加事件监听器
-        filterSelect.addEventListener('change', (e) => {
-            applyFilterPreset(e.target.value);
-        });
-        
-        // 为保存滤镜按钮添加事件监听器
-        saveFilterButton.addEventListener('click', saveCurrentConfigAsPreset);
-        
-        // 当图像加载后启用保存滤镜按钮
-        rawFileInput.addEventListener('change', () => {
-            saveFilterButton.disabled = false;
-        });
-        
-        // 当重置设置时，重置滤镜选择器
-        resetButton.addEventListener('click', () => {
-            filterSelect.value = 'none';
-        });
+        const filterManager = initFilterModule(
+            filterElements,
+            settings,
+            resetAllParametersToDefault,
+            () => {
+                // 更新图像
+                debouncedImageUpdate();
+                // 更新直方图
+                if (window.chartManager) {
+                    window.chartManager.forceUpdateHistogram();
+                }
+            },
+            updateWhiteBalanceCoefficients
+        );
         
         // 实现点击图像容器查看大图功能
         const imageContainer = document.querySelector('.image-container');
@@ -1930,78 +1784,11 @@
             }
         });
         
-        // 直方图功能实现
-        const histogramCanvas = document.getElementById('histogram-canvas');
-        const histogramCtx = histogramCanvas.getContext('2d');
-        
-        // 确保canvas有适当的尺寸
-        function resizeHistogramCanvas() {
-            const parentWidth = histogramCanvas.parentElement.clientWidth;
-            histogramCanvas.width = parentWidth - 20; // 考虑内边距
-            histogramCanvas.height = 150;
-        }
-        
-        // 初始化时调整尺寸
-        resizeHistogramCanvas();
-        
-        // 窗口大小变化时重新调整尺寸
-        window.addEventListener('resize', resizeHistogramCanvas);
-        
-        // 更新直方图
-        function updateHistogram() {
-            try {
-                if (!canvas || canvas.width === 0 || canvas.height === 0) {
-                    drawEmptyHistogram(histogramCtx, histogramCanvas);
-                    return;
-                }
-                
-                // 直接从当前Canvas获取图像数据（包含所有修改，包括颜色替换）
-                const currentImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // 获取当前直方图模式
-                const mode = document.querySelector('.histogram-btn.active').dataset.mode;
-                
-                // 使用优化的直方图更新函数
-                optimizedUpdateHistogram(currentImageData, histogramCtx, histogramCanvas, mode);
-            } catch (error) {
-                console.error('更新直方图时出错:', error);
-                drawEmptyHistogram(histogramCtx, histogramCanvas);
-            }
-        }
+        // 直方图功能已移至 Chart.js 模块
         
 
         
-        // 添加直方图模式切换按钮事件
-        document.querySelectorAll('.histogram-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                // 移除所有按钮的active类
-                document.querySelectorAll('.histogram-btn').forEach(b => b.classList.remove('active'));
-                // 为当前按钮添加active类
-                this.classList.add('active');
-                // 重新绘制直方图
-                updateHistogram();
-            });
-        });
-        
-        // 监听图像画布变化，更新直方图
-        const updateHistogramDebounced = createDebouncedHistogramUpdate(updateHistogram, 100); // 使用从HistogramManager导入的防抖函数
-        
-        // 尝试获取导出按钮，添加点击事件
-        const exportButtons = document.querySelectorAll('button[onclick^="exportImage"]');
-        exportButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                setTimeout(updateHistogram, 50); // 稍微延迟，确保图像已经更新
-            });
-        });
-        
-        // 为颜色调整滑块添加事件监听
-        const sliders = document.querySelectorAll('input[type="range"]');
-        sliders.forEach(slider => {
-            slider.addEventListener('input', updateHistogramDebounced);
-        });
-        
-        // 暴露更新直方图的方法供外部调用
-        window.updateHistogram = updateHistogram;
+        // 直方图事件监听器已移至 Chart.js 模块
         
         // 暴露清除图像处理缓存的方法供颜色替换模块调用
         window.clearImageProcessingCache = function() {
@@ -2036,6 +1823,44 @@
             console.log('颜色替换基准数据:', {
                 hasBaseData: colorReplaceBaseImageData !== null,
                 dataLength: colorReplaceBaseImageData ? colorReplaceBaseImageData.data.length : 0
+            });
+        };
+        
+        // 暴露测试滤镜和直方图功能的方法
+        window.testFilterAndHistogram = function() {
+            console.log('=== 滤镜和直方图功能测试 ===');
+            console.log('滤镜管理器状态:', {
+                hasFilterManager: typeof filterManager !== 'undefined',
+                currentPreset: filterManager ? filterManager.getCurrentPreset() : 'N/A'
+            });
+            console.log('图表管理器状态:', {
+                hasChartManager: typeof window.chartManager !== 'undefined',
+                isInitialized: window.chartManager ? window.chartManager.isInitialized : false,
+                currentMode: window.chartManager ? window.chartManager.getCurrentMode() : 'N/A'
+            });
+            console.log('Canvas状态:', {
+                width: canvas.width,
+                height: canvas.height,
+                hasData: canvas.width > 0 && canvas.height > 0
+            });
+        };
+        
+        // 暴露测试颜色调整和直方图功能的方法
+        window.testColorAdjustmentAndHistogram = function() {
+            console.log('=== 颜色调整和直方图功能测试 ===');
+            console.log('颜色调整函数状态:', {
+                hasDebouncedImageUpdateWithHistogram: typeof debouncedImageUpdateWithHistogram !== 'undefined',
+                hasDebouncedColorUpdate: typeof debouncedColorUpdate !== 'undefined'
+            });
+            console.log('图表管理器状态:', {
+                hasChartManager: typeof window.chartManager !== 'undefined',
+                isInitialized: window.chartManager ? window.chartManager.isInitialized : false
+            });
+            console.log('当前设置:', {
+                brightness: settings.bright,
+                exposure: settings.exp_shift,
+                saturation: settings.user_sat,
+                contrast: settings.contrast
             });
         };
         
@@ -2098,8 +1923,14 @@
             }
         };
         
-        // 初始绘制空直方图
-        drawEmptyHistogram(histogramCtx, histogramCanvas);
+        // 初始化图表模块
+        const histogramCanvas = document.getElementById('histogram-canvas');
+        const chartOptions = {
+            sliders: document.querySelectorAll('input[type="range"]'),
+            exportButtons: document.querySelectorAll('button[onclick^="exportImage"]')
+        };
+        
+        window.chartManager = initChartModule(histogramCanvas, canvas, ctx, chartOptions);
     </script>
 </body>
 </html>
