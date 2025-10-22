@@ -1852,6 +1852,54 @@
             });
         };
         
+        // 暴露测试无滤镜功能的方法
+        window.testNoFilter = function() {
+            console.log('=== 无滤镜功能测试 ===');
+            console.log('滤镜管理器状态:', {
+                hasFilterManager: typeof filterManager !== 'undefined',
+                currentPreset: filterManager ? filterManager.getCurrentPreset() : 'N/A'
+            });
+            console.log('滤镜选择器状态:', {
+                value: filterSelect.value,
+                options: Array.from(filterSelect.options).map(opt => opt.value)
+            });
+            console.log('当前设置:', {
+                brightness: settings.bright,
+                exposure: settings.exp_shift,
+                saturation: settings.user_sat,
+                contrast: settings.contrast,
+                highlights: settings.highlights,
+                shadows: settings.shadows,
+                redTint: settings.redTint,
+                greenTint: settings.greenTint,
+                blueTint: settings.blueTint
+            });
+        };
+        
+        // 暴露手动测试无滤镜功能的方法
+        window.testNoFilterManually = function() {
+            console.log('=== 手动测试无滤镜功能 ===');
+            console.log('应用无滤镜前设置:', {
+                brightness: settings.bright,
+                exposure: settings.exp_shift,
+                saturation: settings.user_sat
+            });
+            
+            // 手动应用无滤镜
+            if (filterManager) {
+                filterManager.applyFilterPreset('none', settings, filterElements, resetAllParametersToDefault, () => {
+                    updateWhiteBalanceCoefficients(settings);
+                    debouncedImageUpdateWithHistogram();
+                });
+            }
+            
+            console.log('应用无滤镜后设置:', {
+                brightness: settings.bright,
+                exposure: settings.exp_shift,
+                saturation: settings.user_sat
+            });
+        };
+        
         // 保存颜色替换后的基准数据
         window.saveColorReplaceBaseData = function(imageData) {
             colorReplaceBaseImageData = {
