@@ -429,7 +429,7 @@
         const tabs = document.querySelectorAll('.tab');
         const tabContents = document.querySelectorAll('.tab-content');
         
-        // 初始化颜色模块
+    
         // 创建colorElements对象并传递给color.js模块
         const colorElements = {
             brightnessSlider,
@@ -474,7 +474,7 @@
             shadows: 0
         };
         
-        // 滤镜预设已移至 Filter.js 模块
+      
         
         // 配置参数
         let settings = { ...defaultSettings };
@@ -623,8 +623,7 @@
         // 暴露isSliderDragging标志供Details.js使用
         window.isSliderDragging = () => isSliderDragging;
         
-        
-        // 滤镜选择器初始化已移至 Filter.js 模块
+     
         
         // 完全重置所有参数到默认值
         function resetAllParametersToDefault() {
@@ -702,9 +701,6 @@
             noiseReductionTypeSelect.value = 'mean';
         }
 
-        // 滤镜预设应用已移至 Filter.js 模块
-        
-        // 滤镜保存功能已移至 Filter.js 模块
 
         // 处理缓存和优化
         let lastProcessedSettings = null;
@@ -819,7 +815,7 @@
         
 
 
-        // 从缓存更新图像
+
 
         
         // 监听文件选择
@@ -907,8 +903,6 @@
             }
         });
         
-        // 校正模块已处理垂直倾斜、水平倾斜、旋转和缩放滑块的事件监听器
-        
         // 重置按钮点击事件
         resetButton.addEventListener('click', () => {
             // 重置设置
@@ -951,9 +945,7 @@
             // 重新应用设置
             updateImageWithNewSettings();
         });
-        
-        // 监听控件变化 - 已通过 registerColorEventListeners 函数处理
-        // 监听控件变化 - 已通过 registerColorEventListeners 函数处理
+    
         
         // 初始化降噪相关控件的值显示
         detailPreservationValue.textContent = detailPreservationSlider.value;
@@ -1037,7 +1029,7 @@
             }
         ]);
         
-        // 所有颜色调整滑块的事件监听器已通过 registerColorEventListeners 函数处理
+ 
         
         // 标签页切换
         tabs.forEach(tab => {
@@ -1147,7 +1139,6 @@
                 canvas.width = imageData.width;
                 canvas.height = imageData.height;
                 
-                // 创建 ImageData 对象并绘制到 canvas
                 // 处理 RGB 转 RGBA 格式转换
                 if (imageData.colors === 3) {
                     // RGB 转 RGBA
@@ -1356,7 +1347,7 @@
             modal.style.opacity = '1';
         }
         
-        // 移除Canvas点击查看功能，改为使用按钮
+ 
         
         // 查看大屏图片按钮事件监听器
         fullscreenViewButton.addEventListener('click', showFullscreenPreview);
@@ -1784,11 +1775,8 @@
             }
         });
         
-        // 直方图功能已移至 Chart.js 模块
+    
         
-
-        
-        // 直方图事件监听器已移至 Chart.js 模块
         
         // 暴露清除图像处理缓存的方法供颜色替换模块调用
         window.clearImageProcessingCache = function() {
