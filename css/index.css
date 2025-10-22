@@ -894,24 +894,39 @@ button:disabled {
     }
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - 隐藏滚动条但保持滚动功能 */
 ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 0px;
+    height: 0px;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-track {
-    background: #2a2a2a;
-    border-radius: 4px;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #555;
-    border-radius: 4px;
+    background: transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-    background: #666;
+    background: transparent;
+}
+
+/* 对于Firefox浏览器 */
+* {
+    scrollbar-width: none;
+    scrollbar-color: transparent transparent;
+}
+
+/* 保持滚动功能但隐藏滚动条 */
+.left-panel, .right-panel {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.left-panel::-webkit-scrollbar, .right-panel::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
 }
 
 /* 文件输入隐藏 */
