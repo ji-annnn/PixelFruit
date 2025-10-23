@@ -105,7 +105,7 @@ Files/
 ### 本地运行
 1. 克隆项目到本地
 2. 使用 Live Server 或类似工具启动本地服务器
-3. 在浏览器中访问 `http://localhost:端口号`
+3. 在浏览器中访问 `http://localhost:5500`
 
 ### 在线使用
 直接访问项目页面，无需安装任何软件
@@ -131,7 +131,3 @@ Files/
 - **项目地址**: [GitHub Repository]
 - **问题反馈**: 通过 Issues 提交
 - **功能建议**: 欢迎在 Issues 中讨论
-
----
-
-**PixelFruit** - 让RAW图像处理更简单、更专业！ 🎨📸 
