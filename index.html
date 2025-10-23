@@ -500,96 +500,31 @@
         // 全局变量保存当前选择的文件对象
         let currentSelectedFile;
         
-        // 高性能批处理系统
-        let pendingUpdates = new Set();
-        let isProcessing = false;
-        let lastProcessTime = 0;
-        const PROCESS_THROTTLE = 50; // 最小处理间隔50ms
         
-        // 批处理图像更新函数（优化版）
-        async function batchImageUpdate() {
-            if (isProcessing || !cachedImageData) return;
-            
-            const now = performance.now();
-            if (now - lastProcessTime < PROCESS_THROTTLE) {
-                // 如果处理太频繁，延迟到下一个动画帧
-                requestAnimationFrame(() => batchImageUpdate());
-                return;
-            }
-            
-            isProcessing = true;
-            lastProcessTime = now;
-            const startTime = performance.now();
-            
-            try {
-                // 检查是否有颜色替换历史记录
-                const hasColorReplacements = window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0;
-                
-                // 如果有颜色替换，不使用缓存，直接重新处理
-                if (hasColorReplacements) {
-                    // 需要重新处理，从当前Canvas状态开始
-                    await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
-                } else {
-                    // 检查是否有缓存可用（仅在无颜色替换时使用缓存）
-                    const hasCache = lastProcessedSettings && processedImageData;
-                    const cacheHit = hasCache && 
-                        JSON.stringify(lastProcessedSettings) === JSON.stringify({
-                            bright: settings.bright,
-                            exp_shift: settings.exp_shift,
-                            user_sat: settings.user_sat,
-                            sharpness: settings.sharpness !== undefined ? settings.sharpness : parseInt(sharpnessSlider.value),
-                            fbdd_noiserd: settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value),
-                            noiseType: currentNoiseReductionSettings.type,
-                            detailPreservation: currentNoiseReductionSettings.detailPreservation,
-                            user_mul: [...settings.user_mul],
-                            redTint: settings.redTint || 0,
-                            greenTint: settings.greenTint || 0,
-                            blueTint: settings.blueTint || 0
-                        });
-                    
-                    if (cacheHit) {
-                        // 使用缓存数据，直接绘制
-                        const imageData = new ImageData(processedImageData, cachedImageData.width, cachedImageData.height);
-                        ctx.putImageData(imageData, 0, 0);
-                    } else {
-                        // 需要重新处理
-                        await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
-                    }
-                }
-                
-                // 更新性能统计
-                const processTime = performance.now() - startTime;
-                updatePerformanceStats(processTime, hasColorReplacements ? false : cacheHit);
-                
-                // 批量更新UI组件
-                requestAnimationFrame(() => {
-                    if (window.chartManager) {
-                        window.chartManager.forceUpdateHistogram();
-                    }
-                    refreshImageDetails();
-                    isProcessing = false;
-                });
-            } catch (error) {
-                console.error('批处理更新失败:', error);
-                isProcessing = false;
-            }
-        }
         
         // 智能防抖图像处理函数
         const debouncedImageUpdate = debounceUtil(async () => {
-            if (cachedImageData && !isProcessing) {
-                await batchImageUpdate();
+            if (cachedImageData) {
+                await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+                
+                // 更新直方图
+                if (window.chartManager) {
+                    window.chartManager.forceUpdateHistogram();
+                }
+                refreshImageDetails();
             }
         }, 80); // 减少防抖延迟，提高响应性
         
         // 创建包含直方图更新的统一更新函数
         const debouncedImageUpdateWithHistogram = debounceUtil(async () => {
-            if (cachedImageData && !isProcessing) {
-                await batchImageUpdate();
-            }
-            // 更新直方图
-            if (window.chartManager) {
-                window.chartManager.forceUpdateHistogram();
+            if (cachedImageData) {
+                await updateImageFromCache(cachedImageData, cachedImageData.width, cachedImageData.height, ctx, canvas, applyAdjustmentsToCachedData);
+                
+                // 更新直方图
+                if (window.chartManager) {
+                    window.chartManager.forceUpdateHistogram();
+                }
+                refreshImageDetails();
             }
         }, 80);
         
