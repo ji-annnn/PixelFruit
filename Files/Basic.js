@@ -86,8 +86,6 @@ export async function updateImageFromCache(cachedImageData, width, height, ctx, 
         
         // 直接绘制图像
         ctx.putImageData(imageData, 0, 0);
-        
-        console.log('图像更新完成，尺寸:', { width, height });
     } catch (error) {
         console.error('从缓存更新图像时出错:', error);
     }

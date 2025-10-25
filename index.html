@@ -194,6 +194,21 @@
                             <span class="value-display" id="texture-value">0</span>
                         </div>
                     </div>
+                    
+                    <div class="slider-group">
+                        <label for="face-brightening">面部美白</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="face-brightening" min="0" max="100" step="1" value="0">
+                            <span class="value-display" id="face-brightening-value">0</span>
+                        </div>
+                    </div>
+                    <div class="slider-group">
+                        <label for="face-smoothness">过渡平滑度</label>
+                        <div class="slider-wrapper">
+                            <input type="range" id="face-smoothness" min="0" max="100" step="1" value="50">
+                            <span class="value-display" id="face-smoothness-value">50</span>
+                        </div>
+                    </div>
                     </div>
                 </div>
                 
@@ -355,7 +370,7 @@
     <script type="module">
         import LibRaw from './index.js';
         import { initColorModule, applyColorAdjustments, updateWhiteBalanceCoefficients, applyContrast, registerColorEventListeners } from './Files/color.js';
-        import { applyUnsharpMask, applySharpness, applyNoiseReduction } from './Files/Details.js';
+        import { applyUnsharpMask, applySharpness, applyNoiseReduction, applyFaceBrightening } from './Files/Details.js';
         import { initSliderManager, addSliderEventListener, addSliderEventListenersBatch } from './Files/SliderManager.js';
         import { drawEmptyHistogram, optimizedUpdateHistogram, createDebouncedHistogramUpdate } from './Files/HistogramManager.js';
         import { exportImage, exportPNG, exportJPEG } from './Files/exportImage.js';
@@ -420,6 +435,10 @@
         const noiseReductionTypeSelect = document.getElementById('noise-reduction-type');
         const detailPreservationSlider = document.getElementById('detail-preservation');
         const detailPreservationValue = document.getElementById('detail-preservation-value');
+        const faceBrighteningSlider = document.getElementById('face-brightening');
+        const faceBrighteningValue = document.getElementById('face-brightening-value');
+        const faceSmoothnessSlider = document.getElementById('face-smoothness');
+        const faceSmoothnessValue = document.getElementById('face-smoothness-value');
         const filterSelect = document.getElementById('filter-select');
         const saveFilterButton = document.getElementById('save-filter-button');
         
@@ -617,6 +636,15 @@
             textureSlider.value = 0;
             textureValue.textContent = '0';
             
+            // 重置面部提亮
+            faceBrighteningSlider.value = 0;
+            faceBrighteningValue.textContent = '0';
+            settings.faceBrightening = 0;
+            
+            faceSmoothnessSlider.value = 50;
+            faceSmoothnessValue.textContent = '50';
+            settings.faceSmoothness = 50;
+            
             
             // 重置白平衡复选框
             useAutoWbCheckbox.checked = true;
@@ -654,6 +682,8 @@
                 fbdd_noiserd: settings.fbdd_noiserd !== undefined ? settings.fbdd_noiserd : parseInt(noiseReductionSlider.value),
                 noiseType: currentNoiseReductionSettings.type,
                 detailPreservation: currentNoiseReductionSettings.detailPreservation,
+                faceBrightening: settings.faceBrightening !== undefined ? settings.faceBrightening : parseInt(faceBrighteningSlider.value),
+                faceSmoothness: settings.faceSmoothness !== undefined ? settings.faceSmoothness : parseInt(faceSmoothnessSlider.value),
                 user_mul: [...settings.user_mul],
                 redTint: settings.redTint || 0,
                 greenTint: settings.greenTint || 0,
@@ -706,8 +736,11 @@
             // 获取处理参数
             const sharpness = currentSettings.sharpness;
             const noiseReduction = currentSettings.fbdd_noiserd;
+            const faceBrightening = currentSettings.faceBrightening || 0;
+            const faceSmoothness = currentSettings.faceSmoothness || 50;
             const needSharpness = sharpness > 0;
             const needNoiseReduction = noiseReduction > 0;
+            const needFaceBrightening = faceBrightening > 0;
             
             // 应用颜色调整（从color.js模块）
             // 注意：即使有颜色替换，也需要应用基本设置，因为颜色替换只影响特定颜色范围
@@ -730,6 +763,11 @@
                 applySharpness(data, width, height, sharpness);
             }
             
+            // 应用面部提亮
+            if (needFaceBrightening) {
+                applyFaceBrightening(data, width, height, faceBrightening, faceSmoothness);
+            }
+            
             // 缓存处理结果（只有在没有颜色替换时才缓存，避免缓存被颜色替换覆盖）
             if (!hasColorReplacements) {
                 if (!processedImageData) {
@@ -744,6 +782,9 @@
             if (endTime - startTime > 10) { // 只记录耗时超过10ms的处理
                 console.log(`图像处理耗时: ${(endTime - startTime).toFixed(2)}ms`);
             }
+            
+            // 刷新图片细节显示，确保显示最新的像素信息
+            refreshImageDetails();
         }
         
 
@@ -859,6 +900,10 @@
             detailPreservationValue.textContent = '50';
             textureSlider.value = 0;
             textureValue.textContent = '0';
+            faceBrighteningSlider.value = 0;
+            faceBrighteningValue.textContent = '0';
+            faceSmoothnessSlider.value = 50;
+            faceSmoothnessValue.textContent = '50';
             contrastSlider.value = 0;
             contrastValue.textContent = '0';
             redTintSlider.value = 0;
@@ -1004,6 +1049,22 @@
                     textureValue.textContent = e.target.value;
                     debouncedImageUpdateWithHistogram();
                 }
+            },
+            {
+                element: faceBrighteningSlider,
+                callback: (e) => {
+                    settings.faceBrightening = parseInt(e.target.value);
+                    faceBrighteningValue.textContent = e.target.value;
+                    debouncedImageUpdateWithHistogram();
+                }
+            },
+            {
+                element: faceSmoothnessSlider,
+                callback: (e) => {
+                    settings.faceSmoothness = parseInt(e.target.value);
+                    faceSmoothnessValue.textContent = e.target.value;
+                    debouncedImageUpdateWithHistogram();
+                }
             }
         ]);
         
@@ -1146,7 +1207,15 @@
             blueTintSlider,
             blueTintValue,
             whitesSlider,
-            whitesValue
+            whitesValue,
+            sharpnessSlider,
+            sharpnessValue,
+            noiseReductionSlider,
+            noiseReductionValue,
+            faceBrighteningSlider,
+            faceBrighteningValue,
+            faceSmoothnessSlider,
+            faceSmoothnessValue
         };
         
         const filterManager = initFilterModule(

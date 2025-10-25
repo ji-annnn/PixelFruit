@@ -62,6 +62,22 @@ const defaultFilterPresets = {
         blue_tint: 10,      // 阴影偏蓝
         green_tint: 5,      // 略加绿形成青色调
         red_tint: -6        // 抑制红，突出青
+    },
+    '人像': {
+        bright: 1.15,       // 提亮整体，让人物更明亮
+        exp_shift: 0.3,     // 增加曝光，突出面部
+        user_sat: 120,      // 适度增加饱和度，让肤色更自然
+        contrast: 8,        // 轻微增强对比度
+        highlights: -8,     // 压高光，避免过曝
+        shadows: 12,        // 提亮阴影，减少面部阴影
+        whites: 105,        // 白场略提，增加通透感
+        red_tint: -3,       // 减少红色，去黄调
+        green_tint: 2,      // 轻微增加绿色
+        blue_tint: 8,       // 增加蓝色，让肤色更白皙
+        sharpness: 15,      // 轻微锐化，增强细节
+        fbdd_noiserd: 20,   // 适度降噪，柔化皮肤
+        faceBrightening: 40, // 面部美白
+        faceSmoothness: 70  // 过渡平滑
     }
 };
 
@@ -179,6 +195,26 @@ export class FilterManager {
                     elements.whitesValue.textContent = preset[key];
                     settings.whites = preset[key];
                     break;
+                case 'sharpness':
+                    elements.sharpnessSlider.value = preset[key];
+                    elements.sharpnessValue.textContent = preset[key];
+                    settings.sharpness = preset[key];
+                    break;
+                case 'fbdd_noiserd':
+                    elements.noiseReductionSlider.value = preset[key];
+                    elements.noiseReductionValue.textContent = preset[key];
+                    settings.fbdd_noiserd = preset[key];
+                    break;
+                case 'faceBrightening':
+                    elements.faceBrighteningSlider.value = preset[key];
+                    elements.faceBrighteningValue.textContent = preset[key];
+                    settings.faceBrightening = preset[key];
+                    break;
+                case 'faceSmoothness':
+                    elements.faceSmoothnessSlider.value = preset[key];
+                    elements.faceSmoothnessValue.textContent = preset[key];
+                    settings.faceSmoothness = preset[key];
+                    break;
             }
         }
         
@@ -220,7 +256,11 @@ export class FilterManager {
             red_tint: parseInt(elements.redTintSlider.value),
             green_tint: parseInt(elements.greenTintSlider.value),
             blue_tint: parseInt(elements.blueTintSlider.value),
-            whites: parseInt(elements.whitesSlider.value)
+            whites: parseInt(elements.whitesSlider.value),
+            sharpness: parseInt(elements.sharpnessSlider.value),
+            fbdd_noiserd: parseInt(elements.noiseReductionSlider.value),
+            faceBrightening: parseInt(elements.faceBrighteningSlider.value),
+            faceSmoothness: parseInt(elements.faceSmoothnessSlider.value)
         };
         
         // 保存预设
