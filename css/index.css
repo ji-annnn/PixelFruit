@@ -93,14 +93,12 @@ body {
     font-size: 0.9em;
 }
 
-/* 滑块控件 */
-.slider-group {
-    margin: 15px 0;
-}
+
+
 
 .slider-group label {
     display: block;
-    margin-bottom: 5px;
+    
     font-size: 0.9em;
     color: var(--text-color);
 }

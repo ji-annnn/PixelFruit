@@ -371,7 +371,7 @@
         import LibRaw from './index.js';
         import { initColorModule, applyColorAdjustments, updateWhiteBalanceCoefficients, applyContrast, registerColorEventListeners } from './Files/color.js';
         import { applyUnsharpMask, applySharpness, applyNoiseReduction, applyFaceBrightening } from './Files/Details.js';
-        import { initSliderManager, addSliderEventListener, addSliderEventListenersBatch } from './Files/SliderManager.js';
+        import { initSliderManager, addSliderEventListenersBatch } from './Files/SliderManager.js';
         import { drawEmptyHistogram, optimizedUpdateHistogram, createDebouncedHistogramUpdate } from './Files/HistogramManager.js';
         import { exportImage, exportPNG, exportJPEG } from './Files/exportImage.js';
         import { initColorReplace } from './Files/Replacecolor.js';
@@ -1534,107 +1534,7 @@
         // 初始化面板
         initializeImageDetailPanel();
         
-        // 降噪算法测试函数
-        function testNoiseReduction() {
-            console.log('=== 降噪算法测试 ===');
-            console.log('当前降噪设置:', {
-                strength: noiseReductionSlider.value,
-                type: currentNoiseReductionSettings.type,
-                detailPreservation: currentNoiseReductionSettings.detailPreservation
-            });
-            
-            // 检查降噪函数是否正确导入
-            if (typeof applyNoiseReduction === 'function') {
-                console.log('✅ applyNoiseReduction 函数已正确导入');
-            } else {
-                console.error('❌ applyNoiseReduction 函数未找到');
-            }
-            
-            // 检查降噪是否在图像处理流程中被调用
-            console.log('降噪处理流程:', {
-                needNoiseReduction: parseInt(noiseReductionSlider.value) > 0,
-                currentSettings: currentNoiseReductionSettings
-            });
-        }
         
-        // 在页面加载完成后运行测试
-        setTimeout(testNoiseReduction, 1000);
-        
-        // 性能监控系统
-        let performanceStats = {
-            totalOperations: 0,
-            averageProcessTime: 0,
-            maxProcessTime: 0,
-            cacheHits: 0,
-            cacheMisses: 0
-        };
-        
-        // 性能监控函数
-        function updatePerformanceStats(processTime, cacheHit = false) {
-            performanceStats.totalOperations++;
-            performanceStats.averageProcessTime = 
-                (performanceStats.averageProcessTime * (performanceStats.totalOperations - 1) + processTime) / 
-                performanceStats.totalOperations;
-            performanceStats.maxProcessTime = Math.max(performanceStats.maxProcessTime, processTime);
-            
-            if (cacheHit) {
-                performanceStats.cacheHits++;
-            } else {
-                performanceStats.cacheMisses++;
-            }
-            
-            // 每100次操作输出一次性能报告
-            if (performanceStats.totalOperations % 100 === 0) {
-                console.log('📊 性能统计:', {
-                    总操作次数: performanceStats.totalOperations,
-                    平均处理时间: `${performanceStats.averageProcessTime.toFixed(2)}ms`,
-                    最大处理时间: `${performanceStats.maxProcessTime.toFixed(2)}ms`,
-                    缓存命中率: `${(performanceStats.cacheHits / (performanceStats.cacheHits + performanceStats.cacheMisses) * 100).toFixed(1)}%`
-                });
-            }
-        }
-        
-        // 渐进式渲染函数
-        function progressiveRender(imageData, width, height, quality = 1.0) {
-            return new Promise((resolve) => {
-                const tempCanvas = document.createElement('canvas');
-                const tempCtx = tempCanvas.getContext('2d', { colorSpace: 'srgb' });
-                
-                // 根据质量调整尺寸
-                const renderWidth = Math.floor(width * quality);
-                const renderHeight = Math.floor(height * quality);
-                
-                tempCanvas.width = renderWidth;
-                tempCanvas.height = renderHeight;
-                
-                // 创建缩放后的图像数据
-                const scaledImageData = new ImageData(renderWidth, renderHeight);
-                const scaleX = width / renderWidth;
-                const scaleY = height / renderHeight;
-                
-                for (let y = 0; y < renderHeight; y++) {
-                    for (let x = 0; x < renderWidth; x++) {
-                        const srcX = Math.floor(x * scaleX);
-                        const srcY = Math.floor(y * scaleY);
-                        const srcIdx = (srcY * width + srcX) * 4;
-                        const dstIdx = (y * renderWidth + x) * 4;
-                        
-                        scaledImageData.data[dstIdx] = imageData.data[srcIdx];
-                        scaledImageData.data[dstIdx + 1] = imageData.data[srcIdx + 1];
-                        scaledImageData.data[dstIdx + 2] = imageData.data[srcIdx + 2];
-                        scaledImageData.data[dstIdx + 3] = imageData.data[srcIdx + 3];
-                    }
-                }
-                
-                tempCtx.putImageData(scaledImageData, 0, 0);
-                
-                // 绘制到主Canvas
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
-                
-                resolve();
-            });
-        }
         
         // 切换固定/跟随模式
         function toggleDetailMode(mouseX, mouseY) {
@@ -1795,112 +1695,6 @@
             return null;
         };
         
-        // 暴露测试基本设置功能的方法
-        window.testBasicSettings = function() {
-            console.log('=== 基本设置功能测试 ===');
-            console.log('当前设置:', {
-                brightness: settings.bright,
-                exposure: settings.exp_shift,
-                saturation: settings.user_sat,
-                contrast: settings.contrast,
-                hasColorReplacements: window.getColorReplaceHistory && window.getColorReplaceHistory().length > 0
-            });
-            console.log('Canvas状态:', {
-                width: canvas.width,
-                height: canvas.height,
-                hasData: canvas.width > 0 && canvas.height > 0
-            });
-            console.log('颜色替换基准数据:', {
-                hasBaseData: colorReplaceBaseImageData !== null,
-                dataLength: colorReplaceBaseImageData ? colorReplaceBaseImageData.data.length : 0
-            });
-        };
-        
-        // 暴露测试滤镜和直方图功能的方法
-        window.testFilterAndHistogram = function() {
-            console.log('=== 滤镜和直方图功能测试 ===');
-            console.log('滤镜管理器状态:', {
-                hasFilterManager: typeof filterManager !== 'undefined',
-                currentPreset: filterManager ? filterManager.getCurrentPreset() : 'N/A'
-            });
-            console.log('图表管理器状态:', {
-                hasChartManager: typeof window.chartManager !== 'undefined',
-                isInitialized: window.chartManager ? window.chartManager.isInitialized : false,
-                currentMode: window.chartManager ? window.chartManager.getCurrentMode() : 'N/A'
-            });
-            console.log('Canvas状态:', {
-                width: canvas.width,
-                height: canvas.height,
-                hasData: canvas.width > 0 && canvas.height > 0
-            });
-        };
-        
-        // 暴露测试颜色调整和直方图功能的方法
-        window.testColorAdjustmentAndHistogram = function() {
-            console.log('=== 颜色调整和直方图功能测试 ===');
-            console.log('颜色调整函数状态:', {
-                hasDebouncedImageUpdateWithHistogram: typeof debouncedImageUpdateWithHistogram !== 'undefined',
-                hasDebouncedColorUpdate: typeof debouncedColorUpdate !== 'undefined'
-            });
-            console.log('图表管理器状态:', {
-                hasChartManager: typeof window.chartManager !== 'undefined',
-                isInitialized: window.chartManager ? window.chartManager.isInitialized : false
-            });
-            console.log('当前设置:', {
-                brightness: settings.bright,
-                exposure: settings.exp_shift,
-                saturation: settings.user_sat,
-                contrast: settings.contrast
-            });
-        };
-        
-        // 暴露测试无滤镜功能的方法
-        window.testNoFilter = function() {
-            console.log('=== 无滤镜功能测试 ===');
-            console.log('滤镜管理器状态:', {
-                hasFilterManager: typeof filterManager !== 'undefined',
-                currentPreset: filterManager ? filterManager.getCurrentPreset() : 'N/A'
-            });
-            console.log('滤镜选择器状态:', {
-                value: filterSelect.value,
-                options: Array.from(filterSelect.options).map(opt => opt.value)
-            });
-            console.log('当前设置:', {
-                brightness: settings.bright,
-                exposure: settings.exp_shift,
-                saturation: settings.user_sat,
-                contrast: settings.contrast,
-                highlights: settings.highlights,
-                shadows: settings.shadows,
-                redTint: settings.redTint,
-                greenTint: settings.greenTint,
-                blueTint: settings.blueTint
-            });
-        };
-        
-        // 暴露手动测试无滤镜功能的方法
-        window.testNoFilterManually = function() {
-            console.log('=== 手动测试无滤镜功能 ===');
-            console.log('应用无滤镜前设置:', {
-                brightness: settings.bright,
-                exposure: settings.exp_shift,
-                saturation: settings.user_sat
-            });
-            
-            // 手动应用无滤镜
-            if (filterManager) {
-                filterManager.applyFilterPreset('none', settings, filterElements, resetAllParametersToDefault, () => {
-                    updateWhiteBalanceCoefficients(settings);
-                    debouncedImageUpdateWithHistogram();
-                });
-            }
-            
-            console.log('应用无滤镜后设置:', {
-                brightness: settings.bright,
-                exposure: settings.exp_shift,
-                saturation: settings.user_sat
-            });
-        };
         
         // 保存颜色替换后的基准数据
         window.saveColorReplaceBaseData = function(imageData) {
